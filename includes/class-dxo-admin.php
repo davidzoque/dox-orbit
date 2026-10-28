@@ -42,7 +42,7 @@ class DXO_Admin {
 	public static function register_in_core( $core ) {
 		$core->register_plugin( [
 			'slug'    => self::SLUG,
-			'name'    => 'Orbit',
+			'name'    => 'Dox Orbit',
 			'version' => DXO_VERSION,
 			'summary' => __( 'Newsletters and email campaigns from your own WordPress.', 'dox-orbit' ),
 			'page'    => [
