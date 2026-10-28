@@ -127,7 +127,14 @@ saliendo en el idioma de Ajustes, un solo texto.
 Hasta la 0.3.0 Orbit solo sabía "enviado" (el servidor lo aceptó), "falló" (lo
 rechazó al momento) y aperturas o clics. Los rebotes que vuelven después, cuando
 la dirección no existe, iban al remitente del sobre por defecto y nadie los leía,
-así que `bounced` existía como estado pero nada lo ponía. Ahora:
+así que `bounced` existía como estado pero nada lo ponía. 
+**Lo recomendado:** un buzón solo para rebotes en el propio hosting (`rebotes@sudominio.com`, en cPanel
+Cuentas de correo). Nunca un buzón que lea alguien (info@, ventas@), porque Orbit lo ordena. Sirve
+cualquier buzón con IMAP y contraseña: los del hosting funcionan directo, Gmail necesita contraseña de
+aplicación y Microsoft 365 / Outlook.com no lo permiten. Decidido el 28/10/2026: leer el buzón del
+remitente se descartó, y el receptor sin configuración (estilo Mailchimp) queda para la versión Pro.
+
+Ahora:
 
 1. **Ajustes, pestaña Rebotes.** Un buzón solo para esto (`rebotes@sudominio.com`;
    en cPanel, Cuentas de correo), con su servidor IMAP, puerto (993), usuario

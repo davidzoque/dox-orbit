@@ -377,9 +377,6 @@ msgstr "Contar las aperturas"
 msgid "Counted again when it goes out: whoever opens the original in the meantime will not receive it."
 msgstr "Se vuelve a contar al enviarla: quien abra la original mientras tanto ya no la recibe."
 
-msgid "Create a mailbox only for this (in cPanel: Email Accounts), for example bounces@yourdomain.com, and put its address and password here. Orbit checks it every hour, marks the addresses that do not exist as Bounced so it stops writing to them, and tidies the mailbox."
-msgstr "Crea un buzón solo para esto (en cPanel: Cuentas de correo), por ejemplo rebotes@tudominio.com, y pon aquí su dirección y su contraseña. Orbit lo revisa cada hora, marca como Rebotados los correos que no existen para dejar de escribirles, y ordena el buzón."
-
 msgid "Custom fonts only load in some email apps (Apple Mail, iPhone). Anywhere else the fallback font is used, so always add one."
 msgstr "Las fuentes propias solo cargan en algunas apps de correo (Apple Mail, iPhone). En el resto se usa la fuente de respaldo, así que pon siempre una."
 
@@ -415,6 +412,9 @@ msgstr "Descartar"
 
 msgid "Divider"
 msgstr "Separador"
+
+msgid "Do not use a mailbox that someone reads (info@, sales@): Orbit tidies this one and it should only get bounces. Hosting mailboxes (cPanel, Plesk) work directly. Gmail and Google Workspace need an app password. Microsoft 365 and Outlook.com do not allow it."
+msgstr "No uses un buzón que lea alguien (info@, ventas@): Orbit lo ordena y solo debería recibir rebotes. Los buzones del hosting (cPanel, Plesk) funcionan directo. Gmail y Google Workspace necesitan una contraseña de aplicación. Microsoft 365 y Outlook.com no lo permiten."
 
 msgid "Do you want to unsubscribe?"
 msgstr "¿Quieres darte de baja?"
@@ -956,6 +956,9 @@ msgstr "Recibieron 3 o más y no abrieron ninguno. Conviene limpiarlos de vez en
 msgid "Recipients"
 msgstr "Destinatarios"
 
+msgid "Recommended: a mailbox only for bounces on your own hosting, for example bounces@yourdomain.com (in cPanel: Email Accounts). Put its address and password here. Orbit reads it by IMAP every hour, marks the addresses that do not exist as Bounced so it stops writing to them, and tidies the mailbox."
+msgstr "Recomendado: un buzón solo para rebotes en tu propio hosting, por ejemplo rebotes@tudominio.com (en cPanel: Cuentas de correo). Pon aquí su dirección y su contraseña. Orbit lo lee por IMAP cada hora, marca como Rebotadas las direcciones que no existen para dejar de escribirles y ordena el buzón."
+
 msgid "Recommended: leave at least 50 free per hour."
 msgstr "Recomendado: dejar al menos 50 libres por hora."
 
@@ -1357,6 +1360,9 @@ msgstr "Esta campaña ya salió y no se puede editar. Puedes duplicarla para env
 
 msgid "This email is no longer available"
 msgstr "Este correo ya no está disponible"
+
+msgid "This is the same mailbox the emails come from. Better use one only for bounces, so nobody reads it and Orbit can tidy it."
+msgstr "Es el mismo buzón desde el que salen los correos. Mejor usa uno solo para rebotes, que nadie lea y que Orbit pueda ordenar."
 
 msgid "This link is no longer valid"
 msgstr "Este enlace ya no es válido"

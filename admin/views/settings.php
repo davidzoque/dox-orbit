@@ -102,7 +102,8 @@ $left  = max( 0, $limit - $rate );
 				</div>
 				<div class="dxo-card-b">
 					<p style="margin:0 0 4px"><?php esc_html_e( 'When an address does not exist or the mailbox is full, the other server sends the email back. Without this, those returns get lost and Orbit keeps writing to dead addresses, which hurts your reputation with Gmail and Outlook.', 'dox-orbit' ); ?></p>
-					<p style="margin:0"><?php esc_html_e( 'Create a mailbox only for this (in cPanel: Email Accounts), for example bounces@yourdomain.com, and put its address and password here. Orbit checks it every hour, marks the addresses that do not exist as Bounced so it stops writing to them, and tidies the mailbox.', 'dox-orbit' ); ?></p>
+					<p style="margin:0"><?php esc_html_e( 'Recommended: a mailbox only for bounces on your own hosting, for example bounces@yourdomain.com (in cPanel: Email Accounts). Put its address and password here. Orbit reads it by IMAP every hour, marks the addresses that do not exist as Bounced so it stops writing to them, and tidies the mailbox.', 'dox-orbit' ); ?></p>
+					<div class="dxo-note" style="margin-top:10px"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php esc_html_e( 'Do not use a mailbox that someone reads (info@, sales@): Orbit tidies this one and it should only get bounces. Hosting mailboxes (cPanel, Plesk) work directly. Gmail and Google Workspace need an app password. Microsoft 365 and Outlook.com do not allow it.', 'dox-orbit' ); ?></span></div>
 					<div class="dxo-opt" style="margin-top:6px"><div class="tx"><b><?php esc_html_e( 'Handle bounces automatically', 'dox-orbit' ); ?></b><span><?php esc_html_e( 'Every email from Orbit will use the mailbox below as its return address. The rest of the website emails are not touched.', 'dox-orbit' ); ?></span></div>
 						<label class="dxo-sw"><input type="checkbox" name="bounce_enabled" value="1" <?php checked( $s['bounce_enabled'] ); ?>><span></span></label></div>
 				</div>
@@ -125,6 +126,10 @@ $left  = max( 0, $limit - $rate );
 					<?php endif; ?>
 					<?php
 					$dom = function ( $e ) { return strtolower( (string) substr( strrchr( (string) $e, '@' ), 1 ) ); };
+					// Si es el mismo buzón que envía, alguien lo lee: mejor uno solo para rebotes
+					if ( is_email( $s['bounce_email'] ) && strtolower( $s['bounce_email'] ) === strtolower( (string) $s['from_email'] ) ) : ?>
+						<div class="dxo-note"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php esc_html_e( 'This is the same mailbox the emails come from. Better use one only for bounces, so nobody reads it and Orbit can tidy it.', 'dox-orbit' ); ?></span></div>
+					<?php endif;
 					if ( is_email( $s['bounce_email'] ) && is_email( $s['from_email'] ) && $dom( $s['bounce_email'] ) !== $dom( $s['from_email'] ) ) : ?>
 						<div class="dxo-note"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php echo esc_html( sprintf( __( 'The mailbox is on %1$s but the emails come from %2$s. For SPF to line up, use a mailbox on the same domain as the sender.', 'dox-orbit' ), $dom( $s['bounce_email'] ), $dom( $s['from_email'] ) ) ); ?></span></div>
 					<?php endif; ?>
