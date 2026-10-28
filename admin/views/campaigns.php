@@ -8,8 +8,7 @@ $filter  = isset( $_GET['f'] ) ? sanitize_key( $_GET['f'] ) : 'all'; // phpcs:ig
 $search  = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) ) : ''; // phpcs:ignore
 $counts  = DXO_Campaigns::counts();
 $rows    = DXO_Campaigns::query( $filter, $search );
-$welcome = DXO_Campaigns::welcome();
-$wst     = DXO_Campaigns::stats( $welcome['id'] );
+$welcomes = DXO_Campaigns::welcomes(); // una por idioma con Polylang; una sola sin él
 $new_url = wp_nonce_url( admin_url( 'admin-post.php?action=dxo_new_campaign' ), 'dxo_new' );
 
 $filters = [
@@ -112,20 +111,24 @@ $filters = [
 		<?php endif; ?>
 	</div>
 
+	<?php foreach ( $welcomes as $welcome ) :
+		$wst   = DXO_Campaigns::stats( $welcome['id'] );
+		$wlang = DXO_Campaigns::lang_name( $welcome );
+		?>
 	<div class="dxo-gap"></div>
 	<div class="dxo-card" data-anim>
 		<div class="dxo-card-h">
 			<h3><?php esc_html_e( 'Welcome email', 'dox-orbit' ); ?></h3>
+			<?php if ( $wlang !== '' ) : ?><span class="dxo-pill p-info"><?php echo esc_html( $wlang ); ?></span><?php endif; ?>
 			<?php echo DXO_Admin::status_pill( $welcome ); // phpcs:ignore ?>
 			<div class="sp"></div>
 			<a class="dxo-btn dxo-btn-gray dxo-btn-sm" href="<?php echo esc_url( DXO_Admin::url( 'edit', [ 'id' => $welcome['id'] ] ) ); ?>"><?php echo DXO_Admin::icon( 'pen' ); // phpcs:ignore ?><?php esc_html_e( 'Edit', 'dox-orbit' ); ?></a>
-			<label class="dxo-sw" title="<?php esc_attr_e( 'On / off', 'dox-orbit' ); ?>"><input type="checkbox" data-welcome <?php checked( $welcome['status'], 'active' ); ?> aria-label="<?php esc_attr_e( 'Send the welcome email', 'dox-orbit' ); ?>"><span></span></label>
+			<label class="dxo-sw" title="<?php esc_attr_e( 'On / off', 'dox-orbit' ); ?>"><input type="checkbox" data-welcome="<?php echo (int) $welcome['id']; ?>" <?php checked( $welcome['status'], 'active' ); ?> aria-label="<?php esc_attr_e( 'Send the welcome email', 'dox-orbit' ); ?>"><span></span></label>
 		</div>
 		<div class="dxo-card-b" style="display:flex;gap:24px;flex-wrap:wrap;align-items:center">
-			<div style="flex:1 1 260px"><div class="t" style="color:var(--t1);font-weight:600"><?php echo esc_html( $welcome['subject'] ); ?></div><div class="small muted"><?php esc_html_e( 'Goes out by itself when someone confirms their subscription.', 'dox-orbit' ); ?></div></div>
-			<?php if ( $wst['sent'] ) : ?>
-				<div class="small"><b style="color:var(--t1)"><?php echo esc_html( dxo_num( $wst['sent'] ) ); ?></b> <?php esc_html_e( 'sent', 'dox-orbit' ); ?> · <b style="color:var(--t1)"><?php echo esc_html( dxo_pct( $wst['opened'], $wst['sent'] ) ); ?></b> <?php esc_html_e( 'opened', 'dox-orbit' ); ?> · <a href="<?php echo esc_url( DXO_Admin::url( 'report', [ 'id' => $welcome['id'] ] ) ); ?>"><?php esc_html_e( 'Report', 'dox-orbit' ); ?></a></div>
-			<?php endif; ?>
+			<div style="flex:1 1 260px"><div class="t" style="color:var(--t1);font-weight:600"><?php echo esc_html( $welcome['subject'] ); ?></div><div class="small muted"><?php echo esc_html( $wlang !== '' ? __( 'Goes out by itself in this language when someone confirms their subscription.', 'dox-orbit' ) : __( 'Goes out by itself when someone confirms their subscription.', 'dox-orbit' ) ); ?></div></div>
+			<div class="small"><b style="color:var(--t1)"><?php echo esc_html( dxo_num( $wst['sent'] ) ); ?></b> <?php esc_html_e( 'sent', 'dox-orbit' ); ?> · <b style="color:var(--t1)"><?php echo esc_html( dxo_pct( $wst['opened'], $wst['sent'] ) ); ?></b> <?php esc_html_e( 'opened', 'dox-orbit' ); ?> · <a href="<?php echo esc_url( DXO_Admin::url( 'report', [ 'id' => $welcome['id'] ] ) ); ?>"><?php esc_html_e( 'Report', 'dox-orbit' ); ?></a></div>
 		</div>
 	</div>
+	<?php endforeach; ?>
 </div>

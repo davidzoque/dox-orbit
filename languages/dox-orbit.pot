@@ -11,6 +11,9 @@ msgstr ""
 msgid "%1$s in %2$d days"
 msgstr ""
 
+msgid "%1$s messages read, %2$s bounces found (%3$s do not exist, %4$s temporary)."
+msgstr ""
+
 msgid "%1$s new, %2$s already there, %3$s skipped, %4$s invalid"
 msgstr ""
 
@@ -45,6 +48,9 @@ msgid "%s has been removed from the list. If it was a mistake, you can subscribe
 msgstr ""
 
 msgid "%s hours"
+msgstr ""
+
+msgid "%s ignored because they could not be verified as coming from an email of this site."
 msgstr ""
 
 msgid "%s left. Nothing goes out until you resume it."
@@ -116,7 +122,13 @@ msgstr ""
 msgid "A line that invites to open it"
 msgstr ""
 
+msgid "A mailbox created only for this. Do not use your personal one: Orbit deletes the bounce messages it reads."
+msgstr ""
+
 msgid "A person's name is opened more than a company's: «Ana from Acme» better than «Acme Newsletter»."
+msgstr ""
+
+msgid "A temporary problem, like a full mailbox, is only a warning. After 3 warnings without the person opening anything, the address is marked as Bounced."
 msgstr ""
 
 msgid "Actions"
@@ -219,6 +231,12 @@ msgid "Bottom bar"
 msgstr ""
 
 msgid "Bounced"
+msgstr ""
+
+msgid "Bounced emails"
+msgstr ""
+
+msgid "Bounces"
 msgstr ""
 
 msgid "Brand color"
@@ -326,6 +344,9 @@ msgstr ""
 msgid "Confirmation sent"
 msgstr ""
 
+msgid "Connecting…"
+msgstr ""
+
 msgid "Copied"
 msgstr ""
 
@@ -342,6 +363,9 @@ msgid "Count opens"
 msgstr ""
 
 msgid "Counted again when it goes out: whoever opens the original in the meantime will not receive it."
+msgstr ""
+
+msgid "Create a mailbox only for this (in cPanel: Email Accounts), for example bounces@yourdomain.com, and put its address and password here. Orbit checks it every hour, marks the addresses that do not exist as Bounced so it stops writing to them, and tidies the mailbox."
 msgstr ""
 
 msgid "Dark"
@@ -375,6 +399,9 @@ msgid "Divider"
 msgstr ""
 
 msgid "Do you want to unsubscribe?"
+msgstr ""
+
+msgid "Does not exist"
 msgstr ""
 
 msgid "Done"
@@ -419,10 +446,19 @@ msgstr ""
 msgid "Emails per hour"
 msgstr ""
 
+msgid "Emails that bounced"
+msgstr ""
+
+msgid "Every email from Orbit will use the mailbox below as its return address. The rest of the website emails are not touched."
+msgstr ""
+
 msgid "Everything saved"
 msgstr ""
 
 msgid "Export CSV"
+msgstr ""
+
+msgid "Failed"
 msgstr ""
 
 msgid "Failed sends"
@@ -485,6 +521,9 @@ msgstr ""
 msgid "Go to the website"
 msgstr ""
 
+msgid "Goes out by itself in this language when someone confirms their subscription."
+msgstr ""
+
 msgid "Goes out by itself when someone confirms their subscription."
 msgstr ""
 
@@ -497,6 +536,9 @@ msgstr ""
 msgid "Good"
 msgstr ""
 
+msgid "Handle bounces automatically"
+msgstr ""
+
 msgid "Height"
 msgstr ""
 
@@ -504,6 +546,9 @@ msgid "Hi {first_name|there},"
 msgstr ""
 
 msgid "How the emails go out"
+msgstr ""
+
+msgid "IMAP server"
 msgstr ""
 
 msgid "Image"
@@ -527,6 +572,9 @@ msgstr ""
 msgid "In a page, as a pop-up or as a bottom bar."
 msgstr ""
 
+msgid "In cPanel, in the mailbox «Connect Devices», it is the incoming server. The connection is always encrypted."
+msgstr ""
+
 msgid "In the SES console, «SMTP settings». It depends on the region: email-smtp.us-east-2.amazonaws.com is Ohio."
 msgstr ""
 
@@ -536,7 +584,13 @@ msgstr ""
 msgid "Interest comes from their last 5 emails: an open adds a point, a click adds two."
 msgstr ""
 
+msgid "It is saved encrypted and never shown again."
+msgstr ""
+
 msgid "It is saved encrypted and never shown again. When saving, the connection with Amazon is checked."
+msgstr ""
+
+msgid "It logs in and counts the messages in the inbox, with what is on the screen even if it is not saved yet."
 msgstr ""
 
 msgid "It may have been used already. If you want to subscribe, use the form on the website again."
@@ -563,13 +617,22 @@ msgstr ""
 msgid "Large"
 msgstr ""
 
+msgid "Last %s"
+msgstr ""
+
 msgid "Last 90 days. Above 2 % hurts delivery."
+msgstr ""
+
+msgid "Last check"
 msgstr ""
 
 msgid "Last name"
 msgstr ""
 
 msgid "Latest campaigns"
+msgstr ""
+
+msgid "Leave it empty if the user is the full email address, which is the usual."
 msgstr ""
 
 msgid "Left"
@@ -618,6 +681,9 @@ msgid "Mark as active"
 msgstr ""
 
 msgid "Medium"
+msgstr ""
+
+msgid "Most mailboxes accept name+anything@ (cPanel, Gmail and Microsoft 365 do): it lets Orbit know which email bounced. Turn it off only if bounces stop arriving."
 msgstr ""
 
 msgid "Move down"
@@ -704,10 +770,22 @@ msgstr ""
 msgid "Nobody would receive it: the chosen lists have no active subscribers."
 msgstr ""
 
+msgid "None so far"
+msgstr ""
+
+msgid "Not checked yet. Once this is on, Orbit checks the mailbox every hour."
+msgstr ""
+
 msgid "Not configured"
 msgstr ""
 
 msgid "Not confirmed"
+msgstr ""
+
+msgid "Not read yet. Turn on bounce handling in Settings to clean the list by itself."
+msgstr ""
+
+msgid "Not tracked"
 msgstr ""
 
 msgid "Nothing scheduled."
@@ -779,6 +857,9 @@ msgstr ""
 msgid "Pages"
 msgstr ""
 
+msgid "Password"
+msgstr ""
+
 msgid "Paste it in any page or post. In Elementor, look for the «Dox Orbit» widget."
 msgstr ""
 
@@ -824,6 +905,9 @@ msgstr ""
 msgid "Ready to send?"
 msgstr ""
 
+msgid "Reason"
+msgstr ""
+
 msgid "Received 3 or more and opened none. Worth cleaning from time to time."
 msgstr ""
 
@@ -833,7 +917,13 @@ msgstr ""
 msgid "Recommended: leave at least 50 free per hour."
 msgstr ""
 
+msgid "Rejected"
+msgstr ""
+
 msgid "Remove"
+msgstr ""
+
+msgid "Removed from the list"
 msgstr ""
 
 msgid "Reply to"
@@ -915,6 +1005,9 @@ msgid "See all"
 msgstr ""
 
 msgid "See the report"
+msgstr ""
+
+msgid "See them"
 msgstr ""
 
 msgid "Send a test"
@@ -1019,7 +1112,13 @@ msgstr ""
 msgid "Subscribers"
 msgstr ""
 
+msgid "Temporary"
+msgstr ""
+
 msgid "Test"
+msgstr ""
+
+msgid "Test connection"
 msgstr ""
 
 msgid "Test email"
@@ -1064,10 +1163,16 @@ msgstr ""
 msgid "That time has already passed."
 msgstr ""
 
+msgid "That welcome email no longer exists."
+msgstr ""
+
 msgid "The CAN-SPAM law in the US requires a real postal address in every marketing email: a street address, a PO box or a private mailbox."
 msgstr ""
 
 msgid "The WordPress email"
+msgstr ""
+
+msgid "The bounce mailbox email is not valid."
 msgstr ""
 
 msgid "The campaign and its report will be deleted. This cannot be undone."
@@ -1091,10 +1196,22 @@ msgstr ""
 msgid "The links go through your website for an instant before reaching their destination."
 msgstr ""
 
+msgid "The mailbox"
+msgstr ""
+
+msgid "The mailbox did not accept the connection: %s"
+msgstr ""
+
+msgid "The mailbox is on %1$s but the emails come from %2$s. For SPF to line up, use a mailbox on the same domain as the sender."
+msgstr ""
+
 msgid "The number is who joined through each form in 30 days"
 msgstr ""
 
 msgid "The page after confirming"
+msgstr ""
+
+msgid "The password could not be stored safely because this server has no OpenSSL. Nothing was changed."
 msgstr ""
 
 msgid "The reply-to email is not valid."
@@ -1208,7 +1325,13 @@ msgstr ""
 msgid "Unsubscribes per send"
 msgstr ""
 
+msgid "Use plus addressing (VERP)"
+msgstr ""
+
 msgid "Use this image"
+msgstr ""
+
+msgid "User"
 msgstr ""
 
 msgid "View in browser"
@@ -1227,6 +1350,9 @@ msgid "Welcome to %s"
 msgstr ""
 
 msgid "Welcome, {first_name|friend}"
+msgstr ""
+
+msgid "What happened"
 msgstr ""
 
 msgid "What is seen next to the subject in the inbox"
@@ -1251,6 +1377,9 @@ msgid "When"
 msgstr ""
 
 msgid "When a campaign goes out, its opens, clicks and unsubscribes appear here."
+msgstr ""
+
+msgid "When an address does not exist or the mailbox is full, the other server sends the email back. Without this, those returns get lost and Orbit keeps writing to dead addresses, which hurts your reputation with Gmail and Outlook."
 msgstr ""
 
 msgid "When scrolling down"
@@ -1316,10 +1445,28 @@ msgstr ""
 msgid "WordPress email"
 msgstr ""
 
+msgid "Worked"
+msgstr ""
+
 msgid "Write a subject."
 msgstr ""
 
 msgid "Write a valid email for the test."
+msgstr ""
+
+msgid "Write only the name of the IMAP server, like mail.yourdomain.com."
+msgstr ""
+
+msgid "Write the IMAP server of the mailbox to turn this on."
+msgstr ""
+
+msgid "Write the IMAP server of the mailbox."
+msgstr ""
+
+msgid "Write the bounce mailbox email first."
+msgstr ""
+
+msgid "Write the bounce mailbox email to turn this on."
 msgstr ""
 
 msgid "Write the first campaign"
@@ -1331,6 +1478,12 @@ msgstr ""
 msgid "Write the first one. It saves by itself as you type, and you can send yourself a test before it goes out."
 msgstr ""
 
+msgid "Write the password of the mailbox to turn this on."
+msgstr ""
+
+msgid "Write the password of the mailbox."
+msgstr ""
+
 msgid "Yes, subscribe me"
 msgstr ""
 
@@ -1340,10 +1493,16 @@ msgstr ""
 msgid "You are receiving this email because you subscribed at %s."
 msgstr ""
 
+msgid "You are sending with Amazon SES: Orbit does not change the return address and SES receives the bounces itself, so this mailbox will not get them."
+msgstr ""
+
 msgid "You are subscribed"
 msgstr ""
 
 msgid "You are unsubscribed"
+msgstr ""
+
+msgid "You changed the server, port or user: write the password to test it."
 msgstr ""
 
 msgid "You have not sent yourself a test yet."
@@ -1365,6 +1524,9 @@ msgid "Your server lets out <b>%s emails per hour</b> per website. Whatever the 
 msgstr ""
 
 msgid "Your session expired. Reload the page."
+msgstr ""
+
+msgid "bounced"
 msgstr ""
 
 msgid "clicked"
@@ -1408,6 +1570,16 @@ msgid_plural "%s active subscribers"
 msgstr[0] ""
 msgstr[1] ""
 
+msgid "%s address is marked as Bounced and will not get more emails."
+msgid_plural "%s addresses are marked as Bounced and will not get more emails."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%s address marked as Bounced in total."
+msgid_plural "%s addresses marked as Bounced in total."
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "%s failed"
 msgid_plural "%s failed"
 msgstr[0] ""
@@ -1425,6 +1597,11 @@ msgstr[1] ""
 
 msgid "%s waiting to confirm"
 msgid_plural "%s waiting to confirm"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Connected. There is %s message in the inbox."
+msgid_plural "Connected. There are %s messages in the inbox."
 msgstr[0] ""
 msgstr[1] ""
 

@@ -88,7 +88,7 @@ class DXO_Stats {
 		$r    = DXO_Install::table( 'recipients' );
 		$s    = DXO_Install::table( 'subscribers' );
 		$from = gmdate( 'Y-m-d H:i:s', time() - 90 * DAY_IN_SECONDS );
-		$row  = $wpdb->get_row( $wpdb->prepare( "SELECT SUM(status IN ('sent','failed')) total, SUM(status = 'failed') failed, SUM(unsubscribed_at IS NOT NULL) unsub FROM $r WHERE sent_at >= %s", $from ), ARRAY_A );
+		$row  = $wpdb->get_row( $wpdb->prepare( "SELECT SUM(status IN ('sent','failed')) total, SUM(status = 'failed') failed, SUM(unsubscribed_at IS NOT NULL) unsub, SUM(bounced_at IS NOT NULL) bounced FROM $r WHERE sent_at >= %s", $from ), ARRAY_A );
 
 		// Activos que recibieron 3 o más correos en 6 meses y no abrieron ninguno.
 		$six      = gmdate( 'Y-m-d H:i:s', time() - 180 * DAY_IN_SECONDS );
@@ -102,9 +102,10 @@ class DXO_Stats {
 		$total = (int) $row['total'];
 		$fail  = $total ? (int) $row['failed'] / $total : 0;
 		$unsub = $total ? (int) $row['unsub'] / $total : 0;
+		$bounce = $total ? (int) $row['bounced'] / $total : 0;
 		$grade = 'good';
-		if ( $fail > .02 || $unsub > .01 ) $grade = 'watch';
-		if ( $fail > .05 || $unsub > .02 ) $grade = 'bad';
+		if ( $fail > .02 || $unsub > .01 || $bounce > .02 ) $grade = 'watch';
+		if ( $fail > .05 || $unsub > .02 || $bounce > .05 ) $grade = 'bad';
 
 		return [
 			'total'    => $total,
@@ -112,6 +113,8 @@ class DXO_Stats {
 			'unsub'    => (int) $row['unsub'],
 			'fail_pct' => $fail * 100,
 			'unsub_pct'=> $unsub * 100,
+			'bounces'  => (int) $row['bounced'],
+			'bounce_pct'=> $bounce * 100,
 			'inactive' => $inactive,
 			'bounced'  => $bounced,
 			'grade'    => $total ? $grade : 'none',

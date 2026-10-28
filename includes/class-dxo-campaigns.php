@@ -3,8 +3,10 @@
  * Campañas.
  *
  * Estados de una campaña normal: draft → scheduled → sending → sent, con
- * paused y cancelled por el camino. La de bienvenida (type = welcome) es una
- * sola y está active o inactive: cada alta confirmada le añade un destinatario.
+ * paused y cancelled por el camino. La de bienvenida (type = welcome) está
+ * active o inactive: cada alta confirmada le añade un destinatario. Con
+ * Polylang hay una por idioma del sitio (el idioma va en `audience.lang`);
+ * sin Polylang, una sola y sin idioma.
  *
  * Al lanzar se congela la audiencia en `recipients`, una fila por persona con
  * su token: desde ahí salen los enlaces de seguimiento, la baja y el informe.
@@ -109,7 +111,10 @@ class DXO_Campaigns {
 		if ( isset( $data['preheader'] ) ) $row['preheader'] = mb_substr( sanitize_text_field( $data['preheader'] ), 0, 255 );
 		if ( isset( $data['blocks'] ) ) $row['blocks'] = wp_json_encode( DXO_Renderer::normalize_blocks( $data['blocks'] ) );
 		if ( isset( $data['lists'] ) && empty( $c['audience']['resend'] ) ) {
-			$row['list_ids'] = wp_json_encode( [ 'lists' => array_values( array_filter( array_map( 'intval', (array) $data['lists'] ) ) ) ] );
+			$aud = [ 'lists' => array_values( array_filter( array_map( 'intval', (array) $data['lists'] ) ) ) ];
+			// El idioma de la campaña no se pierde al guardar las listas.
+			if ( self::lang_of( $c ) !== '' ) $aud['lang'] = self::lang_of( $c );
+			$row['list_ids'] = wp_json_encode( $aud );
 		}
 		$wpdb->update( self::t(), $row, [ 'id' => (int) $id ] );
 		return self::get( $id );
@@ -316,33 +321,215 @@ class DXO_Campaigns {
 
 	// ═══ Bienvenida ═════════════════════════════════════════════════════════
 
-	/** La campaña de bienvenida. Se crea la primera vez que se pide, apagada. */
-	public static function welcome() {
-		global $wpdb;
-		$id = (int) $wpdb->get_var( 'SELECT id FROM ' . self::t() . " WHERE type = 'welcome' ORDER BY id ASC LIMIT 1" );
-		if ( ! $id ) {
-			$id = self::create( [
-				'type'      => 'welcome',
-				'status'    => 'inactive',
+	// ─── Idiomas (Polylang) ───
+
+	public static function polylang() {
+		return function_exists( 'pll_languages_list' );
+	}
+
+	/**
+	 * Los idiomas del sitio en el orden de Polylang: slug => [ name, locale ].
+	 * Vacío sin Polylang.
+	 */
+	public static function languages() {
+		if ( ! self::polylang() ) return [];
+		$slugs   = (array) pll_languages_list( [ 'fields' => 'slug' ] );
+		$names   = (array) pll_languages_list( [ 'fields' => 'name' ] );
+		$locales = (array) pll_languages_list( [ 'fields' => 'locale' ] );
+		$out     = [];
+		foreach ( $slugs as $i => $slug ) {
+			$out[ (string) $slug ] = [ 'name' => (string) ( $names[ $i ] ?? $slug ), 'locale' => (string) ( $locales[ $i ] ?? '' ) ];
+		}
+		// En WP-Cron Polylang a veces aún no tiene sus idiomas cargados: se usa la última lista que se vio.
+		if ( ! $out ) {
+			$seen = get_option( 'dxo_pll_langs' );
+			return is_array( $seen ) && ! empty( $seen['list'] ) ? $seen['list'] : [];
+		}
+		$def  = function_exists( 'pll_default_language' ) ? (string) pll_default_language() : '';
+		$seen = get_option( 'dxo_pll_langs' );
+		if ( ! is_array( $seen ) || ( $seen['list'] ?? null ) !== $out || ( $seen['default'] ?? '' ) !== $def ) {
+			update_option( 'dxo_pll_langs', [ 'list' => $out, 'default' => $def ], false );
+		}
+		return $out;
+	}
+
+	/** El idioma por defecto de Polylang (su slug); '' sin Polylang o si no se sabe. */
+	public static function default_lang() {
+		if ( ! self::polylang() ) return '';
+		$d = function_exists( 'pll_default_language' ) ? (string) pll_default_language() : '';
+		$langs = self::languages(); // también refresca la copia guardada
+		if ( $d === '' ) {
+			$seen = get_option( 'dxo_pll_langs' );
+			$d    = is_array( $seen ) ? (string) ( $seen['default'] ?? '' ) : '';
+		}
+		if ( $d === '' && $langs ) $d = (string) array_key_first( $langs );
+		return $d;
+	}
+
+	/** El idioma guardado en una campaña ('' = ninguno). */
+	public static function lang_of( array $c ) {
+		return (string) ( $c['audience']['lang'] ?? '' );
+	}
+
+	/** El nombre del idioma de una campaña, para pintarlo en el panel ('' = no tiene). */
+	public static function lang_name( array $c ) {
+		$l = self::lang_of( $c );
+		if ( $l === '' ) return '';
+		$langs = self::languages();
+		return $langs[ $l ]['name'] ?? $l;
+	}
+
+	/**
+	 * Cambia el idioma de WordPress al de la campaña mientras se construyen sus
+	 * textos. Devuelve true si cambió de verdad: solo entonces hay que llamar a
+	 * restore_previous_locale() (switch_to_locale devuelve false si ya estaba en
+	 * ese idioma o si ese idioma no está instalado).
+	 */
+	public static function enter_lang( $lang ) {
+		$lang = (string) $lang;
+		if ( $lang === '' || ! function_exists( 'switch_to_locale' ) ) return false;
+		$langs = self::languages();
+		if ( empty( $langs[ $lang ]['locale'] ) ) return false;
+		return (bool) switch_to_locale( $langs[ $lang ]['locale'] );
+	}
+
+	public static function leave_lang( $entered ) {
+		if ( $entered ) restore_previous_locale();
+	}
+
+	/** ¿Es una campaña en un idioma que no es el principal? Su pie no usa el texto guardado en Ajustes. */
+	public static function is_secondary_lang( array $c ) {
+		$l = self::lang_of( $c );
+		$d = self::default_lang();
+		return self::polylang() && $d !== '' && $l !== '' && $l !== $d;
+	}
+
+	// ─── Bienvenidas ───
+
+	/** El asunto y los bloques de una bienvenida nueva, en el idioma $lang ('' = el del sitio). */
+	private static function welcome_defaults( $lang ) {
+		$entered = self::enter_lang( $lang );
+		try {
+			$home = $lang !== '' && function_exists( 'pll_home_url' ) ? (string) pll_home_url( $lang ) : '';
+			if ( $home === '' ) $home = home_url( '/' );
+			return [
 				'subject'   => sprintf( __( 'Welcome to %s', 'dox-orbit' ), get_bloginfo( 'name' ) ),
 				'preheader' => __( 'What you will receive and how often.', 'dox-orbit' ),
-				'audience'  => [ 'lists' => [] ],
 				'blocks'    => [
 					[ 'type' => 'heading', 'text' => __( 'Welcome, {first_name|friend}', 'dox-orbit' ), 'size' => 'large', 'align' => 'left' ],
 					[ 'type' => 'text', 'html' => '<p>' . esc_html__( 'Thanks for subscribing. Once a month you will receive what we learn and what we publish, without filler.', 'dox-orbit' ) . '</p>', 'align' => 'left' ],
-					[ 'type' => 'button', 'text' => __( 'Visit the blog', 'dox-orbit' ), 'url' => home_url( '/' ), 'style' => 'dark', 'align' => 'left' ],
+					[ 'type' => 'button', 'text' => __( 'Visit the blog', 'dox-orbit' ), 'url' => $home, 'style' => 'dark', 'align' => 'left' ],
 				],
-			] );
-			$wpdb->update( self::t(), [ 'started_at' => dxo_now() ], [ 'id' => $id ] );
+			];
+		} finally {
+			self::leave_lang( $entered );
+		}
+	}
+
+	/** Crea una bienvenida apagada ($lang = '' sin Polylang) y devuelve la campaña. */
+	private static function create_welcome( $lang ) {
+		global $wpdb;
+		$d  = self::welcome_defaults( $lang );
+		$aud = [ 'lists' => [] ];
+		if ( $lang !== '' ) $aud['lang'] = $lang;
+		$id = self::create( [
+			'type'      => 'welcome',
+			'status'    => 'inactive',
+			'subject'   => $d['subject'],
+			'preheader' => $d['preheader'],
+			'audience'  => $aud,
+			'blocks'    => $d['blocks'],
+		] );
+		$wpdb->update( self::t(), [ 'started_at' => dxo_now() ], [ 'id' => $id ] );
+
+		// Dos peticiones a la vez pueden crear la misma: se queda la de id más bajo y la otra se borra.
+		if ( $lang !== '' ) {
+			$rows = $wpdb->get_results( 'SELECT * FROM ' . self::t() . " WHERE type = 'welcome' AND id < " . (int) $id . ' ORDER BY id ASC', ARRAY_A ) ?: [];
+			foreach ( $rows as $r ) {
+				$c = self::hydrate( $r );
+				if ( self::lang_of( $c ) === $lang ) {
+					$wpdb->delete( self::t(), [ 'id' => $id ] );
+					return $c;
+				}
+			}
 		}
 		return self::get( $id );
 	}
 
-	/** Si la bienvenida está encendida, pone en cola el correo para quien acaba de entrar. */
+	/**
+	 * Las bienvenidas, slug de idioma => campaña, en el orden de Polylang.
+	 * Se crean las que falten (apagadas). Sin Polylang es una sola, con la
+	 * clave '' (se crea la primera vez que se pide, apagada).
+	 *
+	 * Instalaciones que vienen de antes de la 0.3.0: la bienvenida que ya
+	 * existía, sin idioma, pasa a ser la del idioma por defecto.
+	 */
+	public static function welcomes() {
+		global $wpdb;
+		$rows = $wpdb->get_results( 'SELECT * FROM ' . self::t() . " WHERE type = 'welcome' ORDER BY id ASC", ARRAY_A ) ?: [];
+		$all  = array_map( [ __CLASS__, 'hydrate' ], $rows );
+		$langs = self::languages();
+
+		if ( ! $langs ) {
+			return [ '' => $all ? $all[0] : self::create_welcome( '' ) ];
+		}
+
+		$by     = [];
+		$orphan = null;
+		foreach ( $all as $c ) {
+			$l = self::lang_of( $c );
+			if ( $l === '' ) { if ( ! $orphan ) $orphan = $c; continue; }
+			if ( isset( $langs[ $l ] ) && ! isset( $by[ $l ] ) ) $by[ $l ] = $c;
+		}
+
+		$default = self::default_lang();
+		if ( $orphan && ! isset( $by[ $default ] ) ) {
+			$aud         = $orphan['audience'];
+			$aud['lang'] = $default;
+			$wpdb->update( self::t(), [ 'list_ids' => wp_json_encode( $aud ) ], [ 'id' => (int) $orphan['id'] ] );
+			$by[ $default ] = self::get( $orphan['id'] );
+		}
+
+		$out = [];
+		foreach ( $langs as $slug => $_ ) {
+			$out[ $slug ] = $by[ $slug ] ?? self::create_welcome( $slug );
+		}
+		return $out;
+	}
+
+	/** La bienvenida principal: la del idioma por defecto (o la única, sin Polylang). */
+	public static function welcome() {
+		$all = self::welcomes();
+		$d   = self::default_lang();
+		return $all[ $d ] ?? reset( $all );
+	}
+
+	/**
+	 * La bienvenida que le toca a alguien según su idioma ($lang: 'es', 'en',
+	 * 'es_CO'...). Primero el slug exacto; luego las dos primeras letras; si
+	 * nada encaja, la del idioma por defecto; y si tampoco, la primera.
+	 */
+	public static function welcome_for( $lang ) {
+		$all  = self::welcomes();
+		$norm = function ( $l ) { return strtolower( str_replace( '_', '-', trim( (string) $l ) ) ); };
+		$want = $norm( $lang );
+		if ( $want !== '' ) {
+			foreach ( $all as $slug => $c ) {
+				if ( $slug !== '' && $norm( $slug ) === $want ) return $c;
+			}
+			foreach ( $all as $slug => $c ) {
+				if ( $slug !== '' && substr( $norm( $slug ), 0, 2 ) === substr( $want, 0, 2 ) ) return $c;
+			}
+		}
+		$d = self::default_lang();
+		return $all[ $d ] ?? reset( $all );
+	}
+
+	/** Si la bienvenida de su idioma está encendida, pone en cola el correo para quien acaba de entrar. */
 	public static function enqueue_welcome( $sub ) {
 		global $wpdb;
 		if ( ! $sub || $sub['status'] !== 'active' ) return;
-		$w = self::welcome();
+		$w = self::welcome_for( (string) ( $sub['lang'] ?? '' ) );
 		if ( ! $w || $w['status'] !== 'active' ) return;
 
 		$wpdb->query( $wpdb->prepare(
@@ -369,7 +556,7 @@ class DXO_Campaigns {
 		] );
 	}
 
-	/** Los números de una campaña: enviados, abiertos, clics, bajas, fallos. */
+	/** Los números de una campaña: enviados, abiertos, clics, bajas, fallos, rebotes. */
 	public static function stats( $id ) {
 		global $wpdb;
 		$r = self::t( 'recipients' );
@@ -380,11 +567,21 @@ class DXO_Campaigns {
 				SUM(status = 'queued') queued,
 				SUM(status = 'sent' AND opened_at IS NOT NULL) opened,
 				SUM(status = 'sent' AND clicked_at IS NOT NULL) clicked,
-				SUM(unsubscribed_at IS NOT NULL) unsubscribed
+				SUM(unsubscribed_at IS NOT NULL) unsubscribed,
+				SUM(bounced_at IS NOT NULL) bounced
 			 FROM $r WHERE campaign_id = %d",
 			$id
 		), ARRAY_A );
 		return array_map( 'intval', $row ?: [] );
+	}
+
+	/** Los envíos que rebotaron, los últimos primero, para el informe. */
+	public static function bounced_list( $id, $limit = 25 ) {
+		global $wpdb;
+		return $wpdb->get_results( $wpdb->prepare(
+			'SELECT r.email, r.bounced_at, r.bounce_reason, s.status AS sub_status FROM ' . self::t( 'recipients' ) . ' r LEFT JOIN ' . self::t( 'subscribers' ) . ' s ON s.id = r.subscriber_id WHERE r.campaign_id = %d AND r.bounced_at IS NOT NULL ORDER BY r.bounced_at DESC, r.id DESC LIMIT %d',
+			$id, $limit
+		), ARRAY_A ) ?: [];
 	}
 
 	/** Aperturas por hora en las primeras 24 horas (primera apertura de cada uno). */

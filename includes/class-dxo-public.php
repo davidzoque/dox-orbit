@@ -115,11 +115,18 @@ class DXO_Public {
 			return;
 		}
 
+		// El idioma de la página donde estaba el formulario, si es uno de los de Polylang; si no, el de la petición.
+		$lang = function_exists( 'pll_current_language' ) ? (string) pll_current_language() : substr( determine_locale(), 0, 5 );
+		if ( ! empty( $_POST['dxo_lang'] ) ) {
+			$posted = sanitize_key( wp_unslash( $_POST['dxo_lang'] ) );
+			if ( isset( DXO_Campaigns::languages()[ $posted ] ) ) $lang = $posted;
+		}
+
 		$res = DXO_Subscribers::subscribe( $email, [
 			'first_name' => $name,
 			'list_ids'   => [ (int) $form['list_id'] ],
 			'source'     => $form['slug'],
-			'lang'       => function_exists( 'pll_current_language' ) ? (string) pll_current_language() : substr( determine_locale(), 0, 5 ),
+			'lang'       => $lang,
 			'ip'         => $ip,
 		] );
 
@@ -200,6 +207,12 @@ class DXO_Public {
 		echo base64_decode( 'R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' );
 	}
 
+	/** Un clic prueba que hay una persona: los avisos pasajeros de rebote vuelven a cero. Las aperturas no (Apple MPP y los antivirus las disparan solos). */
+	private static function reset_soft_bounces( array $r ) {
+		global $wpdb;
+		$wpdb->query( $wpdb->prepare( 'UPDATE ' . DXO_Install::table( 'subscribers' ) . ' SET soft_bounces = 0 WHERE id = %d AND soft_bounces > 0', $r['subscriber_id'] ) );
+	}
+
 	private static function mark_open( array $r ) {
 		global $wpdb;
 		$t = DXO_Install::table( 'recipients' );
@@ -231,6 +244,7 @@ class DXO_Public {
 			$wpdb->query( $wpdb->prepare( "UPDATE $t SET click_count = LEAST(click_count + 1, 65000) WHERE id = %d", $r['id'] ) );
 			$wpdb->query( $wpdb->prepare( 'UPDATE ' . DXO_Install::table( 'links' ) . ' SET clicks = clicks + 1 WHERE id = %d', $link['id'] ) );
 			DXO_Campaigns::log_event( (int) $r['campaign_id'], (int) $r['id'], 'click', (int) $link['id'] );
+			self::reset_soft_bounces( $r );
 		}
 
 		// La URL es la que se guardó al lanzar la campaña, nunca una que venga en

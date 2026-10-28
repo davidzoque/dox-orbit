@@ -192,6 +192,8 @@ class DXO_Forms {
 		$form = '<' . $tag . ' class="dxo-form"' . ( $tag === 'form' ? ' method="post" action="' . esc_url( DXO_Public::url( 'subscribe' ) ) . '" novalidate' : '' ) . '>'
 			. ( $pv ? '' : '<input type="hidden" name="dxo" value="subscribe"><input type="hidden" name="dxo_form" value="' . $slug . '">'
 				. '<input type="hidden" name="dxo_ts" value="' . time() . '">'
+				// Polylang: el formulario manda a la portada sin /en/, así que el idioma de la página viaja aquí.
+				. ( function_exists( 'pll_current_language' ) && (string) pll_current_language() !== '' ? '<input type="hidden" name="dxo_lang" value="' . esc_attr( (string) pll_current_language() ) . '">' : '' )
 				. '<div class="dxo-hp" aria-hidden="true"><input type="text" name="dxo_hp" tabindex="-1" autocomplete="off"></div>' )
 			. '<div class="dxo-fields' . ( $f['ask_name'] ? ' has-name' : '' ) . '">' . $name
 			. '<label class="dxo-sr" for="dxo-email-' . $slug . '-' . $mode . '">' . esc_html__( 'Email', 'dox-orbit' ) . '</label>'

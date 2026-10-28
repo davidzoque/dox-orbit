@@ -28,7 +28,7 @@ class DXO_Admin {
 			'delete_campaign', 'duplicate', 'resend', 'welcome_toggle', 'status',
 			'save_subscriber', 'delete_subscriber', 'subscriber_status', 'import', 'resend_confirm',
 			'save_list', 'delete_list', 'save_form', 'delete_form', 'form_preview',
-			'save_settings', 'settings_test', 'posts',
+			'save_settings', 'settings_test', 'bounce_test', 'posts',
 		];
 		foreach ( $ajax as $a ) {
 			add_action( 'wp_ajax_dxo_' . $a, [ __CLASS__, 'ajax_' . $a ] );
@@ -340,15 +340,25 @@ class DXO_Admin {
 		self::guard();
 		$user   = wp_get_current_user();
 		$blocks = DXO_Renderer::normalize_blocks( json_decode( (string) self::in( 'blocks', '[]' ), true ) ?: [] );
+		// Si la campaña tiene idioma, la vista previa saca los textos fijos en ese idioma.
+		$c       = DXO_Campaigns::get( (int) self::in( 'id' ) ) ?: [];
+		$entered = DXO_Campaigns::enter_lang( DXO_Campaigns::lang_of( $c ) );
+		try {
+			$brand = DXO_Settings::brand();
+			if ( $c && DXO_Campaigns::is_secondary_lang( $c ) ) $brand['why'] = DXO_Settings::default_why();
+			$strings = DXO_Public::email_strings();
+		} finally {
+			DXO_Campaigns::leave_lang( $entered );
+		}
 		$render = DXO_Renderer::render_email( [
 			'blocks'          => $blocks,
-			'brand'           => DXO_Settings::brand(),
+			'brand'           => $brand,
 			'subject'         => (string) self::in( 'subject' ),
 			'preheader'       => (string) self::in( 'preheader' ),
 			'fields'          => [ 'first_name' => $user->first_name ?: 'Ana', 'last_name' => $user->last_name, 'email' => $user->user_email ],
 			'unsubscribe_url' => '#',
 			'view_url'        => '#',
-			'strings'         => DXO_Public::email_strings(),
+			'strings'         => $strings,
 		] );
 		wp_send_json_success( [ 'html' => $render['html'] ] );
 	}
@@ -434,7 +444,8 @@ class DXO_Admin {
 
 	public static function ajax_welcome_toggle() {
 		self::guard();
-		$w  = DXO_Campaigns::welcome();
+		$w  = DXO_Campaigns::get( (int) self::in( 'id' ) );
+		if ( ! $w || $w['type'] !== 'welcome' ) self::fail( __( 'That welcome email no longer exists.', 'dox-orbit' ) );
 		$on = (int) self::in( 'on' ) === 1;
 		if ( $on ) {
 			$p = DXO_Campaigns::problems( $w );
@@ -600,32 +611,59 @@ class DXO_Admin {
 		self::guard();
 		$s   = DXO_Settings::all();
 		$new = [];
-		foreach ( [ 'from_name', 'company', 'address', 'confirm_subject', 'confirm_heading', 'confirm_button', 'confirmed_title', 'footer_why', 'ses_host', 'ses_user' ] as $k ) {
+		foreach ( [ 'from_name', 'company', 'address', 'confirm_subject', 'confirm_heading', 'confirm_button', 'confirmed_title', 'footer_why', 'ses_host', 'ses_user', 'imap_user' ] as $k ) {
 			if ( isset( $_POST[ $k ] ) ) $new[ $k ] = sanitize_text_field( self::in( $k ) );
 		}
 		foreach ( [ 'confirm_text', 'confirmed_text' ] as $k ) {
 			if ( isset( $_POST[ $k ] ) ) $new[ $k ] = sanitize_textarea_field( self::in( $k ) );
 		}
-		foreach ( [ 'from_email', 'reply_to' ] as $k ) {
+		foreach ( [ 'from_email', 'reply_to', 'bounce_email' ] as $k ) {
 			if ( ! isset( $_POST[ $k ] ) ) continue;
 			$v = sanitize_email( self::in( $k ) );
 			if ( $k === 'from_email' && ! is_email( $v ) ) self::fail( __( 'The sender email is not valid.', 'dox-orbit' ), [ 'field' => $k ] );
 			if ( $k === 'reply_to' && self::in( $k ) !== '' && ! is_email( $v ) ) self::fail( __( 'The reply-to email is not valid.', 'dox-orbit' ), [ 'field' => $k ] );
+			if ( $k === 'bounce_email' && trim( (string) self::in( $k ) ) !== '' && ! is_email( $v ) ) self::fail( __( 'The bounce mailbox email is not valid.', 'dox-orbit' ), [ 'field' => $k ] );
 			$new[ $k ] = $v;
+		}
+		if ( isset( $_POST['imap_host'] ) ) {
+			$host = self::imap_host( self::in( 'imap_host' ) );
+			if ( $host === null ) self::fail( __( 'Write only the name of the IMAP server, like mail.yourdomain.com.', 'dox-orbit' ), [ 'field' => 'imap_host' ] );
+			$new['imap_host'] = $host;
 		}
 		if ( isset( $_POST['accent'] ) ) $new['accent'] = DXO_Renderer::color( self::in( 'accent' ) );
 		if ( isset( $_POST['logo_id'] ) ) $new['logo_id'] = (int) self::in( 'logo_id' );
-		foreach ( [ 'rate_per_hour' => [ 10, 2000 ], 'server_limit' => [ 10, 100000 ], 'ses_port' => [ 1, 65535 ] ] as $k => $r ) {
+		foreach ( [ 'rate_per_hour' => [ 10, 2000 ], 'server_limit' => [ 10, 100000 ], 'ses_port' => [ 1, 65535 ], 'imap_port' => [ 1, 65535 ] ] as $k => $r ) {
 			if ( isset( $_POST[ $k ] ) ) $new[ $k ] = max( $r[0], min( $r[1], (int) self::in( $k ) ) );
 		}
-		foreach ( [ 'track_opens', 'track_clicks', 'double_optin' ] as $k ) {
+		foreach ( [ 'track_opens', 'track_clicks', 'double_optin', 'bounce_enabled', 'bounce_verp' ] as $k ) {
 			if ( isset( $_POST[ $k ] ) ) $new[ $k ] = (int) self::in( $k ) ? 1 : 0;
 		}
 		if ( isset( $_POST['transport'] ) ) $new['transport'] = self::in( 'transport' ) === 'ses' ? 'ses' : 'wp';
 
 		// La contraseña de SES: vacía quiere decir "no la cambies". Nunca vuelve a la pantalla.
 		$pass = (string) self::in( 'ses_pass' );
-		if ( $pass !== '' ) $new['ses_pass'] = DXO_Settings::encrypt( $pass );
+		if ( $pass !== '' ) {
+			$enc = DXO_Settings::encrypt( $pass );
+			if ( $enc === '' ) self::fail( __( 'The password could not be stored safely because this server has no OpenSSL. Nothing was changed.', 'dox-orbit' ), [ 'field' => 'ses_pass' ] );
+			$new['ses_pass'] = $enc;
+		}
+
+		// La contraseña del buzón de rebotes, igual: vacía = se queda la que había, y nunca vuelve a la pantalla.
+		$ipass = (string) self::in( 'imap_pass' );
+		if ( $ipass !== '' ) {
+			$enc = DXO_Settings::encrypt( $ipass );
+			// Sin OpenSSL encrypt() devuelve '': guardarlo borraría la contraseña que ya había.
+			if ( $enc === '' ) self::fail( __( 'The password could not be stored safely because this server has no OpenSSL. Nothing was changed.', 'dox-orbit' ), [ 'field' => 'imap_pass' ] );
+			$new['imap_pass'] = $enc;
+		}
+
+		// Con los rebotes encendidos tiene que estar todo para leer el buzón.
+		$m = array_merge( $s, $new );
+		if ( ! empty( $m['bounce_enabled'] ) ) {
+			if ( ! is_email( $m['bounce_email'] ) ) self::fail( __( 'Write the bounce mailbox email to turn this on.', 'dox-orbit' ), [ 'field' => 'bounce_email' ] );
+			if ( trim( (string) $m['imap_host'] ) === '' ) self::fail( __( 'Write the IMAP server of the mailbox to turn this on.', 'dox-orbit' ), [ 'field' => 'imap_host' ] );
+			if ( (string) $m['imap_pass'] === '' ) self::fail( __( 'Write the password of the mailbox to turn this on.', 'dox-orbit' ), [ 'field' => 'imap_pass' ] );
+		}
 
 		// Con SES elegido, se comprueba contra Amazon antes de guardar: un usuario
 		// o una contraseña mal puestos harían fallar a todos los de una campaña.
@@ -637,6 +675,50 @@ class DXO_Admin {
 
 		DXO_Settings::update( $new );
 		wp_send_json_success();
+	}
+
+	/** El nombre del servidor IMAP, o null si trae algo más (esquema, ruta, espacios). */
+	private static function imap_host( $v ) {
+		$v = trim( sanitize_text_field( (string) $v ) );
+		if ( $v === '' ) return '';
+		return preg_match( '/^[A-Za-z0-9]([A-Za-z0-9.\-]*[A-Za-z0-9])?$/', $v ) ? $v : null;
+	}
+
+	/**
+	 * Entra al buzón de rebotes con lo que hay en pantalla (aunque no esté guardado)
+	 * y cuenta lo que hay en la bandeja. Contraseña vacía = la guardada.
+	 */
+	public static function ajax_bounce_test() {
+		self::guard();
+		$s    = DXO_Settings::all();
+		$host = self::imap_host( self::in( 'imap_host' ) );
+		if ( $host === null ) self::fail( __( 'Write only the name of the IMAP server, like mail.yourdomain.com.', 'dox-orbit' ), [ 'field' => 'imap_host' ] );
+		$email = sanitize_email( self::in( 'bounce_email' ) );
+		$user  = sanitize_text_field( self::in( 'imap_user' ) );
+		$pass  = (string) self::in( 'imap_pass' );
+		$c = [
+			'host' => $host,
+			'port' => max( 1, min( 65535, (int) self::in( 'imap_port', 993 ) ) ),
+			'user' => $user !== '' ? $user : $email,
+			'pass' => $pass,
+		];
+		if ( $c['user'] === '' ) self::fail( __( 'Write the bounce mailbox email first.', 'dox-orbit' ), [ 'field' => 'bounce_email' ] );
+		// La contraseña guardada solo se usa con el mismo servidor, puerto y usuario que están guardados:
+		// si no, alguien con acceso al panel podría mandarla a un servidor suyo.
+		if ( $c['pass'] === '' ) {
+			$saved = DXO_Bounces::credentials( $s );
+			if ( $c['host'] === $saved['host'] && (int) $c['port'] === (int) $saved['port'] && $c['user'] === $saved['user'] ) {
+				$c['pass'] = $saved['pass'];
+			} else {
+				self::fail( __( 'You changed the server, port or user: write the password to test it.', 'dox-orbit' ), [ 'field' => 'imap_pass' ] );
+			}
+		}
+		try {
+			$r = DXO_Bounces::test( $c );
+		} catch ( Exception $e ) {
+			self::fail( sprintf( __( 'The mailbox did not accept the connection: %s', 'dox-orbit' ), $e->getMessage() ) );
+		}
+		wp_send_json_success( [ 'message' => sprintf( _n( 'Connected. There is %s message in the inbox.', 'Connected. There are %s messages in the inbox.', $r['exists'], 'dox-orbit' ), dxo_num( $r['exists'] ) ) ] );
 	}
 
 	/** Correo de prueba con los ajustes del formulario, aunque no estén guardados. */

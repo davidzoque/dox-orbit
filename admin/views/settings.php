@@ -9,6 +9,7 @@ $s       = DXO_Settings::all();
 $tab     = isset( $_GET['tab'] ) ? sanitize_key( $_GET['tab'] ) : 'sending'; // phpcs:ignore
 $tabs    = [
 	'sending' => __( 'Sending', 'dox-orbit' ),
+	'bounces' => __( 'Bounces', 'dox-orbit' ),
 	'sender'  => __( 'Sender and brand', 'dox-orbit' ),
 	'confirm' => __( 'Confirmation', 'dox-orbit' ),
 	'footer'  => __( 'Tracking and footer', 'dox-orbit' ),
@@ -89,6 +90,75 @@ $left  = max( 0, $limit - $rate );
 						<input class="dxo-input" style="flex:1;min-width:220px" type="email" id="dxo-test-to" value="<?php echo esc_attr( $test_to ); ?>" aria-label="<?php esc_attr_e( 'Test email', 'dox-orbit' ); ?>">
 						<button type="button" class="dxo-btn dxo-btn-gray" data-settings-test><?php esc_html_e( 'Send test email', 'dox-orbit' ); ?></button>
 					</div>
+				</div>
+			</div>
+		</section>
+
+		<!-- ═══ Rebotes ═══ -->
+		<section class="dxo-tab" data-tab-panel="bounces" <?php echo $tab !== 'bounces' ? 'hidden' : ''; ?>>
+			<div class="dxo-card" data-anim>
+				<div class="dxo-card-h"><h3><?php esc_html_e( 'Bounced emails', 'dox-orbit' ); ?></h3><div class="sp"></div>
+					<span class="dxo-pill <?php echo DXO_Bounces::configured( $s ) ? 'p-ok' : 'p-gray'; ?>"><span class="dot"></span><?php echo DXO_Bounces::configured( $s ) ? esc_html__( 'On', 'dox-orbit' ) : esc_html__( 'Off', 'dox-orbit' ); ?></span>
+				</div>
+				<div class="dxo-card-b">
+					<p style="margin:0 0 4px"><?php esc_html_e( 'When an address does not exist or the mailbox is full, the other server sends the email back. Without this, those returns get lost and Orbit keeps writing to dead addresses, which hurts your reputation with Gmail and Outlook.', 'dox-orbit' ); ?></p>
+					<p style="margin:0"><?php esc_html_e( 'Create a mailbox only for this (in cPanel: Email Accounts), for example bounces@yourdomain.com, and put its address and password here. Orbit checks it every hour, marks the addresses that do not exist as Bounced so it stops writing to them, and tidies the mailbox.', 'dox-orbit' ); ?></p>
+					<div class="dxo-opt" style="margin-top:6px"><div class="tx"><b><?php esc_html_e( 'Handle bounces automatically', 'dox-orbit' ); ?></b><span><?php esc_html_e( 'Every email from Orbit will use the mailbox below as its return address. The rest of the website emails are not touched.', 'dox-orbit' ); ?></span></div>
+						<label class="dxo-sw"><input type="checkbox" name="bounce_enabled" value="1" <?php checked( $s['bounce_enabled'] ); ?>><span></span></label></div>
+				</div>
+			</div>
+
+			<div class="dxo-gap"></div>
+			<div class="dxo-card" data-anim>
+				<div class="dxo-card-h"><h3><?php esc_html_e( 'The mailbox', 'dox-orbit' ); ?></h3></div>
+				<div class="dxo-card-b tight">
+					<div class="dxo-field"><label for="st-be"><?php esc_html_e( 'Email', 'dox-orbit' ); ?></label><div><input class="dxo-input" id="st-be" type="email" name="bounce_email" value="<?php echo esc_attr( $s['bounce_email'] ); ?>" placeholder="<?php echo esc_attr( 'bounces@' . preg_replace( '/^www\./', '', (string) wp_parse_url( home_url(), PHP_URL_HOST ) ) ); ?>" autocomplete="off"><div class="dxo-hint"><span><?php esc_html_e( 'A mailbox created only for this. Do not use your personal one: Orbit deletes the bounce messages it reads.', 'dox-orbit' ); ?></span></div></div></div>
+					<div class="dxo-opt"><div class="tx"><b><?php esc_html_e( 'Use plus addressing (VERP)', 'dox-orbit' ); ?></b><span><?php esc_html_e( 'Most mailboxes accept name+anything@ (cPanel, Gmail and Microsoft 365 do): it lets Orbit know which email bounced. Turn it off only if bounces stop arriving.', 'dox-orbit' ); ?></span></div>
+						<label class="dxo-sw"><input type="checkbox" name="bounce_verp" value="1" <?php checked( $s['bounce_verp'] ); ?>><span></span></label></div>
+					<div class="dxo-field"><label for="st-ih"><?php esc_html_e( 'IMAP server', 'dox-orbit' ); ?></label><div><input class="dxo-input" id="st-ih" name="imap_host" value="<?php echo esc_attr( $s['imap_host'] ); ?>" placeholder="mail.yourdomain.com" autocomplete="off"><div class="dxo-hint"><span><?php esc_html_e( 'In cPanel, in the mailbox «Connect Devices», it is the incoming server. The connection is always encrypted.', 'dox-orbit' ); ?></span></div></div></div>
+					<div class="dxo-field"><label for="st-ip"><?php esc_html_e( 'Port', 'dox-orbit' ); ?></label><input class="dxo-input" id="st-ip" type="number" name="imap_port" value="<?php echo (int) $s['imap_port']; ?>" style="max-width:120px"></div>
+					<div class="dxo-field"><label for="st-iu"><?php esc_html_e( 'User', 'dox-orbit' ); ?></label><div><input class="dxo-input" id="st-iu" name="imap_user" value="<?php echo esc_attr( $s['imap_user'] ); ?>" placeholder="<?php esc_attr_e( 'The same email', 'dox-orbit' ); ?>" autocomplete="off"><div class="dxo-hint"><span><?php esc_html_e( 'Leave it empty if the user is the full email address, which is the usual.', 'dox-orbit' ); ?></span></div></div></div>
+					<div class="dxo-field"><label for="st-iw"><?php esc_html_e( 'Password', 'dox-orbit' ); ?></label><div><input class="dxo-input" id="st-iw" type="password" name="imap_pass" value="" autocomplete="new-password" placeholder="<?php echo $s['imap_pass'] ? esc_attr__( 'Saved. Leave it empty to keep it.', 'dox-orbit' ) : ''; ?>"><div class="dxo-hint"><span><?php esc_html_e( 'It is saved encrypted and never shown again.', 'dox-orbit' ); ?></span></div></div></div>
+					<div class="dxo-field"><span class="lbl"></span><div><button type="button" class="dxo-btn dxo-btn-gray" data-bounce-test><?php esc_html_e( 'Test connection', 'dox-orbit' ); ?></button><div class="dxo-hint"><span id="dxo-bounce-result"><?php esc_html_e( 'It logs in and counts the messages in the inbox, with what is on the screen even if it is not saved yet.', 'dox-orbit' ); ?></span></div></div></div>
+					<?php if ( $s['transport'] === 'ses' ) : ?>
+						<div class="dxo-note"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php esc_html_e( 'You are sending with Amazon SES: Orbit does not change the return address and SES receives the bounces itself, so this mailbox will not get them.', 'dox-orbit' ); ?></span></div>
+					<?php endif; ?>
+					<?php
+					$dom = function ( $e ) { return strtolower( (string) substr( strrchr( (string) $e, '@' ), 1 ) ); };
+					if ( is_email( $s['bounce_email'] ) && is_email( $s['from_email'] ) && $dom( $s['bounce_email'] ) !== $dom( $s['from_email'] ) ) : ?>
+						<div class="dxo-note"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php echo esc_html( sprintf( __( 'The mailbox is on %1$s but the emails come from %2$s. For SPF to line up, use a mailbox on the same domain as the sender.', 'dox-orbit' ), $dom( $s['bounce_email'] ), $dom( $s['from_email'] ) ) ); ?></span></div>
+					<?php endif; ?>
+				</div>
+			</div>
+
+			<div class="dxo-gap"></div>
+			<div class="dxo-card" data-anim>
+				<div class="dxo-card-h"><h3><?php esc_html_e( 'Last check', 'dox-orbit' ); ?></h3></div>
+				<div class="dxo-card-b">
+					<?php
+					$bs = DXO_Bounces::last_status();
+					$bounced_total = DXO_Subscribers::counts()['bounced'];
+					if ( $bs ) : ?>
+						<p style="margin:0 0 6px">
+							<span class="dxo-pill <?php echo ! empty( $bs['ok'] ) ? 'p-ok' : 'p-bad'; ?>"><span class="dot"></span><?php echo ! empty( $bs['ok'] ) ? esc_html__( 'Worked', 'dox-orbit' ) : esc_html__( 'Failed', 'dox-orbit' ); ?></span>
+							<span class="muted" style="margin-left:6px"><?php echo esc_html( dxo_date( $bs['time'], get_option( 'date_format' ) . ' ' . get_option( 'time_format' ) ) . ' · ' . dxo_ago( $bs['time'] ) ); ?></span>
+						</p>
+						<?php if ( ! empty( $bs['ok'] ) ) : ?>
+							<p style="margin:0"><?php echo esc_html( sprintf(
+								/* translators: 1: messages read, 2: bounces found, 3: don't exist, 4: temporary */
+								__( '%1$s messages read, %2$s bounces found (%3$s do not exist, %4$s temporary).', 'dox-orbit' ),
+								dxo_num( $bs['checked'] ), dxo_num( $bs['found'] ), dxo_num( $bs['hard'] ), dxo_num( $bs['soft'] )
+							) ); ?></p>
+							<?php if ( ! empty( $bs['unverified'] ) ) : ?>
+								<p class="muted" style="margin:4px 0 0"><?php echo esc_html( sprintf( __( '%s ignored because they could not be verified as coming from an email of this site.', 'dox-orbit' ), dxo_num( $bs['unverified'] ) ) ); ?></p>
+							<?php endif; ?>
+						<?php else : ?>
+							<p style="margin:0;color:var(--bad)"><?php echo esc_html( $bs['message'] ); ?></p>
+						<?php endif; ?>
+					<?php else : ?>
+						<p class="muted" style="margin:0"><?php esc_html_e( 'Not checked yet. Once this is on, Orbit checks the mailbox every hour.', 'dox-orbit' ); ?></p>
+					<?php endif; ?>
+					<div class="dxo-note"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php echo esc_html( sprintf( _n( '%s address is marked as Bounced and will not get more emails.', '%s addresses are marked as Bounced and will not get more emails.', $bounced_total, 'dox-orbit' ), dxo_num( $bounced_total ) ) ); ?> <a href="<?php echo esc_url( DXO_Admin::url( 'subscribers', [ 'status' => 'bounced' ] ) ); ?>"><?php esc_html_e( 'See them', 'dox-orbit' ); ?></a> · <?php esc_html_e( 'A temporary problem, like a full mailbox, is only a warning. After 3 warnings without the person opening anything, the address is marked as Bounced.', 'dox-orbit' ); ?></span></div>
 				</div>
 			</div>
 		</section>
@@ -190,4 +260,5 @@ $left  = max( 0, $limit - $rate );
 	'change'   => __( 'Change', 'dox-orbit' ),
 	'logo'     => __( 'Logo for the emails', 'dox-orbit' ),
 	'test_ok'  => __( 'Test sent to %s. Check the inbox (and spam).', 'dox-orbit' ),
+	'testing'  => __( 'Connecting…', 'dox-orbit' ),
 ] ); ?></script>

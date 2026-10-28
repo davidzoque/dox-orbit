@@ -117,6 +117,9 @@ $data = [
 		<div class="crumb"><a href="<?php echo esc_url( DXO_Admin::url( 'campaigns' ) ); ?>"><?php esc_html_e( 'Campaigns', 'dox-orbit' ); ?></a></div>
 		<h1 id="dxo-title"><?php echo esc_html( $c['subject'] !== '' ? $c['subject'] : ( $welcome ? __( 'Welcome email', 'dox-orbit' ) : __( 'New campaign', 'dox-orbit' ) ) ); ?></h1>
 	</div>
+	<?php if ( DXO_Campaigns::lang_name( $c ) !== '' ) : ?>
+		<span class="dxo-pill p-info"><?php echo esc_html( DXO_Campaigns::lang_name( $c ) ); ?></span>
+	<?php endif; ?>
 	<?php if ( $c['status'] === 'scheduled' ) : ?>
 		<span class="dxo-pill p-info"><span class="dot"></span><?php echo esc_html( sprintf( __( 'Scheduled for %s', 'dox-orbit' ), dxo_date( $c['scheduled_at'], 'D j M, ' . get_option( 'time_format' ) ) ) ); ?></span>
 	<?php endif; ?>

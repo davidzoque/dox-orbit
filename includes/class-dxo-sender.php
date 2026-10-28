@@ -141,7 +141,8 @@ class DXO_Sender {
 			// cantidad, y ponen el enlace "Cancelar suscripción" junto al remitente.
 			'List-Unsubscribe'      => '<' . $email['unsubscribe_url'] . '>',
 			'List-Unsubscribe-Post' => 'List-Unsubscribe=One-Click',
-			'X-Dox-Orbit'      => $c['id'] . '.' . $r['id'],
+			// Firmada: el buzón de rebotes es público y sin firma cualquiera podría inventar un aviso.
+			'X-Dox-Orbit'      => DXO_Bounces::header_value( $c['id'], $r['id'] ),
 		] );
 
 		$ct = DXO_Install::table( 'campaigns' );
@@ -167,9 +168,20 @@ class DXO_Sender {
 		$unsub  = DXO_Public::url( 'unsubscribe', $token );
 		$track  = $links !== null;
 
+		// Una campaña con idioma (la bienvenida de Polylang) saca sus textos fijos en ese idioma.
+		$entered = DXO_Campaigns::enter_lang( DXO_Campaigns::lang_of( $c ) );
+		try {
+			$brand = DXO_Settings::brand();
+			// "Por qué lo recibes" es un texto libre en un solo idioma: fuera del principal va el del plugin, traducido.
+			if ( DXO_Campaigns::is_secondary_lang( $c ) ) $brand['why'] = DXO_Settings::default_why();
+			$strings = DXO_Public::email_strings();
+		} finally {
+			DXO_Campaigns::leave_lang( $entered );
+		}
+
 		$render = DXO_Renderer::render_email( [
 			'blocks'          => $c['blocks'],
-			'brand'           => DXO_Settings::brand(),
+			'brand'           => $brand,
 			'subject'         => $c['subject'],
 			'preheader'       => $c['preheader'],
 			'fields'          => $fields,
@@ -179,7 +191,7 @@ class DXO_Sender {
 			'link'            => $track && $s['track_clicks'] ? function ( $url ) use ( $links, $token ) {
 				return isset( $links[ $url ] ) ? DXO_Public::url( 'click', $token, $links[ $url ] ) : null;
 			} : null,
-			'strings'         => DXO_Public::email_strings(),
+			'strings'         => $strings,
 		] );
 
 		return [

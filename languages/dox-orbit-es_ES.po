@@ -11,6 +11,9 @@ msgstr ""
 msgid "%1$s in %2$d days"
 msgstr "%1$s en %2$d días"
 
+msgid "%1$s messages read, %2$s bounces found (%3$s do not exist, %4$s temporary)."
+msgstr "%1$s mensajes leídos, %2$s rebotes encontrados (%3$s no existen, %4$s pasajeros)."
+
 msgid "%1$s new, %2$s already there, %3$s skipped, %4$s invalid"
 msgstr "%1$s nuevos, %2$s ya estaban, %3$s omitidos, %4$s no válidos"
 
@@ -46,6 +49,9 @@ msgstr "%s ya no está en la lista. Si fue un error, puedes volver a suscribirte
 
 msgid "%s hours"
 msgstr "%s horas"
+
+msgid "%s ignored because they could not be verified as coming from an email of this site."
+msgstr "%s se ignoraron porque no se pudieron verificar como respuesta a un correo de este sitio."
 
 msgid "%s left. Nothing goes out until you resume it."
 msgstr "Quedan %s. No sale nada hasta que lo reanudes."
@@ -116,8 +122,14 @@ msgstr "Un formulario en la web"
 msgid "A line that invites to open it"
 msgstr "Una línea que invite a abrirlo"
 
+msgid "A mailbox created only for this. Do not use your personal one: Orbit deletes the bounce messages it reads."
+msgstr "Un buzón creado solo para esto. No uses el tuyo personal: Orbit borra los avisos de rebote que lee."
+
 msgid "A person's name is opened more than a company's: «Ana from Acme» better than «Acme Newsletter»."
 msgstr "Un nombre de persona se abre más que uno de empresa: mejor «Ana de Acme» que «Boletín Acme»."
+
+msgid "A temporary problem, like a full mailbox, is only a warning. After 3 warnings without the person opening anything, the address is marked as Bounced."
+msgstr "Un problema pasajero, como un buzón lleno, es solo un aviso. Tras 3 avisos sin que la persona abra nada, la dirección pasa a Rebotados."
 
 msgid "Actions"
 msgstr "Acciones"
@@ -220,6 +232,12 @@ msgstr "Barra inferior"
 
 msgid "Bounced"
 msgstr "Rebotados"
+
+msgid "Bounced emails"
+msgstr "Correos rebotados"
+
+msgid "Bounces"
+msgstr "Rebotes"
 
 msgid "Brand color"
 msgstr "Color de marca"
@@ -326,6 +344,9 @@ msgstr "Confirmación"
 msgid "Confirmation sent"
 msgstr "Confirmación enviada"
 
+msgid "Connecting…"
+msgstr "Conectando…"
+
 msgid "Copied"
 msgstr "Copiado"
 
@@ -343,6 +364,9 @@ msgstr "Contar las aperturas"
 
 msgid "Counted again when it goes out: whoever opens the original in the meantime will not receive it."
 msgstr "Se vuelve a contar al enviarla: quien abra la original mientras tanto ya no la recibe."
+
+msgid "Create a mailbox only for this (in cPanel: Email Accounts), for example bounces@yourdomain.com, and put its address and password here. Orbit checks it every hour, marks the addresses that do not exist as Bounced so it stops writing to them, and tidies the mailbox."
+msgstr "Crea un buzón solo para esto (en cPanel: Cuentas de correo), por ejemplo rebotes@tudominio.com, y pon aquí su dirección y su contraseña. Orbit lo revisa cada hora, marca como Rebotados los correos que no existen para dejar de escribirles, y ordena el buzón."
 
 msgid "Dark"
 msgstr "Oscuro"
@@ -376,6 +400,9 @@ msgstr "Separador"
 
 msgid "Do you want to unsubscribe?"
 msgstr "¿Quieres darte de baja?"
+
+msgid "Does not exist"
+msgstr "No existe"
 
 msgid "Done"
 msgstr "Hecho"
@@ -419,11 +446,20 @@ msgstr "Vista previa del correo"
 msgid "Emails per hour"
 msgstr "Correos por hora"
 
+msgid "Emails that bounced"
+msgstr "Correos que rebotaron"
+
+msgid "Every email from Orbit will use the mailbox below as its return address. The rest of the website emails are not touched."
+msgstr "Todos los correos de Orbit usarán el buzón de abajo como dirección de devolución. Los demás correos de la web no se tocan."
+
 msgid "Everything saved"
 msgstr "Todo guardado"
 
 msgid "Export CSV"
 msgstr "Exportar CSV"
+
+msgid "Failed"
+msgstr "Falló"
 
 msgid "Failed sends"
 msgstr "Envíos fallidos"
@@ -485,6 +521,9 @@ msgstr "Gmail pide que las quejas de spam no pasen del 0,3 %."
 msgid "Go to the website"
 msgstr "Ir a la web"
 
+msgid "Goes out by itself in this language when someone confirms their subscription."
+msgstr "Sale solo, en este idioma, cuando alguien confirma su suscripción."
+
 msgid "Goes out by itself when someone confirms their subscription."
 msgstr "Sale sola cuando alguien confirma su suscripción."
 
@@ -497,6 +536,9 @@ msgstr "Sale a %s por hora para dejar sitio a los correos de la web"
 msgid "Good"
 msgstr "Buena"
 
+msgid "Handle bounces automatically"
+msgstr "Gestionar los rebotes automáticamente"
+
 msgid "Height"
 msgstr "Alto"
 
@@ -505,6 +547,9 @@ msgstr "Hola, {first_name|amigo}:"
 
 msgid "How the emails go out"
 msgstr "Cómo salen los correos"
+
+msgid "IMAP server"
+msgstr "Servidor IMAP"
 
 msgid "Image"
 msgstr "Imagen"
@@ -527,6 +572,9 @@ msgstr "En la página"
 msgid "In a page, as a pop-up or as a bottom bar."
 msgstr "En una página, como ventana emergente o como barra inferior."
 
+msgid "In cPanel, in the mailbox «Connect Devices», it is the incoming server. The connection is always encrypted."
+msgstr "En cPanel, en «Conectar dispositivos» del buzón, es el servidor de entrada. La conexión va siempre cifrada."
+
 msgid "In the SES console, «SMTP settings». It depends on the region: email-smtp.us-east-2.amazonaws.com is Ohio."
 msgstr "En la consola de SES, «SMTP settings». Depende de la región: email-smtp.us-east-2.amazonaws.com es Ohio."
 
@@ -536,8 +584,14 @@ msgstr "Interés"
 msgid "Interest comes from their last 5 emails: an open adds a point, a click adds two."
 msgstr "El interés sale de sus últimos 5 correos: abrir suma un punto y hacer clic suma dos."
 
+msgid "It is saved encrypted and never shown again."
+msgstr "Se guarda cifrada y no se vuelve a mostrar."
+
 msgid "It is saved encrypted and never shown again. When saving, the connection with Amazon is checked."
 msgstr "Se guarda cifrada y no se vuelve a enseñar. Al guardar se comprueba la conexión con Amazon."
+
+msgid "It logs in and counts the messages in the inbox, with what is on the screen even if it is not saved yet."
+msgstr "Entra y cuenta los mensajes de la bandeja de entrada, con lo que hay en pantalla aunque aún no esté guardado."
 
 msgid "It may have been used already. If you want to subscribe, use the form on the website again."
 msgstr "Puede que ya se haya usado. Si quieres suscribirte, usa otra vez el formulario de la web."
@@ -563,14 +617,23 @@ msgstr "Vigílala"
 msgid "Large"
 msgstr "Grande"
 
+msgid "Last %s"
+msgstr "Últimos %s"
+
 msgid "Last 90 days. Above 2 % hurts delivery."
 msgstr "Últimos 90 días. Por encima del 2 % perjudica la entrega."
+
+msgid "Last check"
+msgstr "Última revisión"
 
 msgid "Last name"
 msgstr "Apellido"
 
 msgid "Latest campaigns"
 msgstr "Últimas campañas"
+
+msgid "Leave it empty if the user is the full email address, which is the usual."
+msgstr "Déjalo vacío si el usuario es la dirección de correo completa, que es lo habitual."
 
 msgid "Left"
 msgstr "Izquierda"
@@ -619,6 +682,9 @@ msgstr "Marcar como activo"
 
 msgid "Medium"
 msgstr "Mediano"
+
+msgid "Most mailboxes accept name+anything@ (cPanel, Gmail and Microsoft 365 do): it lets Orbit know which email bounced. Turn it off only if bounces stop arriving."
+msgstr "La mayoría de buzones aceptan nombre+lo-que-sea@ (cPanel, Gmail y Microsoft 365 lo hacen): así Orbit sabe qué correo rebotó. Apágalo solo si dejan de llegar rebotes."
 
 msgid "Move down"
 msgstr "Bajar"
@@ -704,11 +770,23 @@ msgstr "Nadie nuevo en los últimos 30 días."
 msgid "Nobody would receive it: the chosen lists have no active subscribers."
 msgstr "No le llegaría a nadie: las listas elegidas no tienen suscriptores activos."
 
+msgid "None so far"
+msgstr "Ninguno por ahora"
+
+msgid "Not checked yet. Once this is on, Orbit checks the mailbox every hour."
+msgstr "Aún no se ha revisado. Cuando esto esté activado, Orbit revisa el buzón cada hora."
+
 msgid "Not configured"
 msgstr "Sin configurar"
 
 msgid "Not confirmed"
 msgstr "Sin confirmar"
+
+msgid "Not read yet. Turn on bounce handling in Settings to clean the list by itself."
+msgstr "Aún no se leen. Activa los rebotes en Ajustes para que la lista se limpie sola."
+
+msgid "Not tracked"
+msgstr "Sin seguimiento"
 
 msgid "Nothing scheduled."
 msgstr "Nada programado."
@@ -779,6 +857,9 @@ msgstr "Resumen"
 msgid "Pages"
 msgstr "Páginas"
 
+msgid "Password"
+msgstr "Contraseña"
+
 msgid "Paste it in any page or post. In Elementor, look for the «Dox Orbit» widget."
 msgstr "Pégalo en cualquier página o entrada. En Elementor, busca el widget «Dox Orbit»."
 
@@ -824,6 +905,9 @@ msgstr "Leer más"
 msgid "Ready to send?"
 msgstr "¿Lista para enviar?"
 
+msgid "Reason"
+msgstr "Motivo"
+
 msgid "Received 3 or more and opened none. Worth cleaning from time to time."
 msgstr "Recibieron 3 o más y no abrieron ninguno. Conviene limpiarlos de vez en cuando."
 
@@ -833,8 +917,14 @@ msgstr "Destinatarios"
 msgid "Recommended: leave at least 50 free per hour."
 msgstr "Recomendado: dejar al menos 50 libres por hora."
 
+msgid "Rejected"
+msgstr "Rechazado"
+
 msgid "Remove"
 msgstr "Quitar"
+
+msgid "Removed from the list"
+msgstr "Fuera de la lista"
 
 msgid "Reply to"
 msgstr "Responder a"
@@ -916,6 +1006,9 @@ msgstr "Ver todas"
 
 msgid "See the report"
 msgstr "Ver el informe"
+
+msgid "See them"
+msgstr "Verlos"
 
 msgid "Send a test"
 msgstr "Enviar una prueba"
@@ -1019,8 +1112,14 @@ msgstr "Suscriptor"
 msgid "Subscribers"
 msgstr "Suscriptores"
 
+msgid "Temporary"
+msgstr "Pasajero"
+
 msgid "Test"
 msgstr "Prueba"
+
+msgid "Test connection"
+msgstr "Probar conexión"
 
 msgid "Test email"
 msgstr "Correo de prueba"
@@ -1064,11 +1163,17 @@ msgstr "Ese suscriptor ya no existe."
 msgid "That time has already passed."
 msgstr "Esa hora ya pasó."
 
+msgid "That welcome email no longer exists."
+msgstr "Ese correo de bienvenida ya no existe."
+
 msgid "The CAN-SPAM law in the US requires a real postal address in every marketing email: a street address, a PO box or a private mailbox."
 msgstr "La ley CAN-SPAM de EE. UU. exige una dirección postal real en cada correo de marketing: calle, apartado de correos o buzón privado."
 
 msgid "The WordPress email"
 msgstr "El correo de WordPress"
+
+msgid "The bounce mailbox email is not valid."
+msgstr "El correo del buzón de rebotes no es válido."
 
 msgid "The campaign and its report will be deleted. This cannot be undone."
 msgstr "Se borrarán la campaña y su informe. No se puede deshacer."
@@ -1091,11 +1196,23 @@ msgstr "El correo está vacío: añade un título, un texto o una imagen."
 msgid "The links go through your website for an instant before reaching their destination."
 msgstr "Los enlaces pasan un instante por tu web antes de llegar a su destino."
 
+msgid "The mailbox"
+msgstr "El buzón"
+
+msgid "The mailbox did not accept the connection: %s"
+msgstr "El buzón no aceptó la conexión: %s"
+
+msgid "The mailbox is on %1$s but the emails come from %2$s. For SPF to line up, use a mailbox on the same domain as the sender."
+msgstr "El buzón es de %1$s pero los correos salen desde %2$s. Para que el SPF coincida, usa un buzón del mismo dominio que el remitente."
+
 msgid "The number is who joined through each form in 30 days"
 msgstr "El número es quién entró por cada formulario en 30 días"
 
 msgid "The page after confirming"
 msgstr "La página después de confirmar"
+
+msgid "The password could not be stored safely because this server has no OpenSSL. Nothing was changed."
+msgstr "La contraseña no se pudo guardar de forma segura porque este servidor no tiene OpenSSL. No se cambió nada."
 
 msgid "The reply-to email is not valid."
 msgstr "El correo de respuesta no es válido."
@@ -1208,8 +1325,14 @@ msgstr "Bajas"
 msgid "Unsubscribes per send"
 msgstr "Bajas por envío"
 
+msgid "Use plus addressing (VERP)"
+msgstr "Usar direcciones con más (VERP)"
+
 msgid "Use this image"
 msgstr "Usar esta imagen"
+
+msgid "User"
+msgstr "Usuario"
 
 msgid "View in browser"
 msgstr "Ver en el navegador"
@@ -1228,6 +1351,9 @@ msgstr "Bienvenido a %s"
 
 msgid "Welcome, {first_name|friend}"
 msgstr "Te damos la bienvenida, {first_name|amigo}"
+
+msgid "What happened"
+msgstr "Qué pasó"
 
 msgid "What is seen next to the subject in the inbox"
 msgstr "Lo que se ve junto al asunto en la bandeja"
@@ -1252,6 +1378,9 @@ msgstr "Cuándo"
 
 msgid "When a campaign goes out, its opens, clicks and unsubscribes appear here."
 msgstr "Cuando salga una campaña, aquí aparecerán sus aperturas, clics y bajas."
+
+msgid "When an address does not exist or the mailbox is full, the other server sends the email back. Without this, those returns get lost and Orbit keeps writing to dead addresses, which hurts your reputation with Gmail and Outlook."
+msgstr "Cuando una dirección no existe o su buzón está lleno, el otro servidor devuelve el correo. Sin esto, esas devoluciones se pierden y Orbit sigue escribiendo a direcciones muertas, lo que daña tu reputación ante Gmail y Outlook."
 
 msgid "When scrolling down"
 msgstr "Al bajar por la página"
@@ -1316,11 +1445,29 @@ msgstr "WordPress no pudo enviar el correo."
 msgid "WordPress email"
 msgstr "Correo de WordPress"
 
+msgid "Worked"
+msgstr "Bien"
+
 msgid "Write a subject."
 msgstr "Escribe un asunto."
 
 msgid "Write a valid email for the test."
 msgstr "Escribe un correo válido para la prueba."
+
+msgid "Write only the name of the IMAP server, like mail.yourdomain.com."
+msgstr "Escribe solo el nombre del servidor IMAP, como mail.tudominio.com."
+
+msgid "Write the IMAP server of the mailbox to turn this on."
+msgstr "Escribe el servidor IMAP del buzón para activarlo."
+
+msgid "Write the IMAP server of the mailbox."
+msgstr "Escribe el servidor IMAP del buzón."
+
+msgid "Write the bounce mailbox email first."
+msgstr "Escribe primero el correo del buzón de rebotes."
+
+msgid "Write the bounce mailbox email to turn this on."
+msgstr "Escribe el correo del buzón de rebotes para activarlo."
 
 msgid "Write the first campaign"
 msgstr "Escribe la primera campaña"
@@ -1331,6 +1478,12 @@ msgstr "Escribe la primera"
 msgid "Write the first one. It saves by itself as you type, and you can send yourself a test before it goes out."
 msgstr "Escribe la primera. Se guarda sola mientras escribes, y puedes mandarte una prueba antes de que salga."
 
+msgid "Write the password of the mailbox to turn this on."
+msgstr "Escribe la contraseña del buzón para activarlo."
+
+msgid "Write the password of the mailbox."
+msgstr "Escribe la contraseña del buzón."
+
 msgid "Yes, subscribe me"
 msgstr "Sí, suscribirme"
 
@@ -1340,11 +1493,17 @@ msgstr "Ya te habías dado de baja"
 msgid "You are receiving this email because you subscribed at %s."
 msgstr "Recibes este correo porque te suscribiste en %s."
 
+msgid "You are sending with Amazon SES: Orbit does not change the return address and SES receives the bounces itself, so this mailbox will not get them."
+msgstr "Estás enviando con Amazon SES: Orbit no cambia la dirección de devolución y SES recibe él mismo los rebotes, así que este buzón no los recibirá."
+
 msgid "You are subscribed"
 msgstr "Ya estás suscrito"
 
 msgid "You are unsubscribed"
 msgstr "Estás dado de baja"
+
+msgid "You changed the server, port or user: write the password to test it."
+msgstr "Cambiaste el servidor, el puerto o el usuario: escribe la contraseña para probar."
 
 msgid "You have not sent yourself a test yet."
 msgstr "Aún no te has mandado una prueba."
@@ -1366,6 +1525,9 @@ msgstr "Tu servidor deja salir <b>%s correos por hora</b> por web. Lo que no use
 
 msgid "Your session expired. Reload the page."
 msgstr "Tu sesión caducó. Recarga la página."
+
+msgid "bounced"
+msgstr "rebotados"
 
 msgid "clicked"
 msgstr "hizo clic"
@@ -1408,6 +1570,16 @@ msgid_plural "%s active subscribers"
 msgstr[0] "%s suscriptor activo"
 msgstr[1] "%s suscriptores activos"
 
+msgid "%s address is marked as Bounced and will not get more emails."
+msgid_plural "%s addresses are marked as Bounced and will not get more emails."
+msgstr[0] "%s dirección está marcada como Rebotada y no recibirá más correos."
+msgstr[1] "%s direcciones están marcadas como Rebotadas y no recibirán más correos."
+
+msgid "%s address marked as Bounced in total."
+msgid_plural "%s addresses marked as Bounced in total."
+msgstr[0] "%s dirección marcada como Rebotada en total."
+msgstr[1] "%s direcciones marcadas como Rebotadas en total."
+
 msgid "%s failed"
 msgid_plural "%s failed"
 msgstr[0] "%s falló"
@@ -1427,6 +1599,11 @@ msgid "%s waiting to confirm"
 msgid_plural "%s waiting to confirm"
 msgstr[0] "%s pendiente de confirmar"
 msgstr[1] "%s pendientes de confirmar"
+
+msgid "Connected. There is %s message in the inbox."
+msgid_plural "Connected. There are %s messages in the inbox."
+msgstr[0] "Conectado. Hay %s mensaje en la bandeja de entrada."
+msgstr[1] "Conectado. Hay %s mensajes en la bandeja de entrada."
 
 msgid "Last campaign · Gmail and iPhone open some by themselves"
 msgid_plural "Last %d campaigns · Gmail and iPhone open some by themselves"

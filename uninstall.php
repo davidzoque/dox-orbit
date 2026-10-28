@@ -10,4 +10,7 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) exit;
 
 wp_clear_scheduled_hook( 'dxo_send' );
 wp_clear_scheduled_hook( 'dxo_send_now' );
+wp_clear_scheduled_hook( 'dxo_bounces' );
+wp_clear_scheduled_hook( 'dxo_bounces_more' );
+delete_option( 'dxo_bounces_lock' );
 delete_option( 'dxo_lock' );

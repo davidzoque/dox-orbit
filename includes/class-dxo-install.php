@@ -4,7 +4,7 @@
  *
  * Todo lo del plugin vive en tablas propias con el prefijo `dxo_`: los
  * suscriptores, sus listas, las campañas, cada correo enviado (recipients),
- * los enlaces de cada campaña y los eventos (aperturas, clics, bajas).
+ * los enlaces de cada campaña y los eventos (aperturas, clics, bajas, rebotes).
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class DXO_Install {
 
 	/** Sube con cualquier cambio de esquema: maybe_upgrade() vuelve a pasar dbDelta. */
-	const DB_VERSION = '1';
+	const DB_VERSION = '2';
 
 	public static function table( $name ) {
 		global $wpdb;
@@ -23,10 +23,13 @@ class DXO_Install {
 		self::create_tables();
 		DXO_Lists::ensure_default();
 		DXO_Sender::schedule();
+		DXO_Bounces::schedule();
 	}
 
 	public static function deactivate() {
 		wp_clear_scheduled_hook( DXO_Sender::HOOK );
+		wp_clear_scheduled_hook( DXO_Bounces::HOOK );
+		wp_clear_scheduled_hook( DXO_Bounces::HOOK_MORE );
 	}
 
 	public static function maybe_upgrade() {
@@ -63,6 +66,7 @@ class DXO_Install {
   confirmed_at datetime DEFAULT NULL,
   unsubscribed_at datetime DEFAULT NULL,
   confirm_sent_at datetime DEFAULT NULL,
+  soft_bounces smallint(5) unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY  (id),
   UNIQUE KEY email (email),
   UNIQUE KEY token (token),
@@ -100,6 +104,7 @@ class DXO_Install {
   total int(10) unsigned NOT NULL DEFAULT 0,
   sent int(10) unsigned NOT NULL DEFAULT 0,
   failed int(10) unsigned NOT NULL DEFAULT 0,
+  bounced int(10) unsigned NOT NULL DEFAULT 0,
   test_sent_at datetime DEFAULT NULL,
   created_at datetime NOT NULL,
   updated_at datetime NOT NULL,
@@ -123,6 +128,8 @@ class DXO_Install {
   clicked_at datetime DEFAULT NULL,
   click_count smallint(5) unsigned NOT NULL DEFAULT 0,
   unsubscribed_at datetime DEFAULT NULL,
+  bounced_at datetime DEFAULT NULL,
+  bounce_reason varchar(250) NOT NULL DEFAULT '',
   PRIMARY KEY  (id),
   UNIQUE KEY token (token),
   UNIQUE KEY campaign_subscriber (campaign_id,subscriber_id),

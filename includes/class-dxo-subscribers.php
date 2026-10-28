@@ -147,6 +147,7 @@ class DXO_Subscribers {
 				'last_name'       => $args['last_name'] !== '' ? mb_substr( $args['last_name'], 0, 100 ) : $sub['last_name'],
 				'confirmed_at'    => $status === 'active' ? $now : null,
 				'unsubscribed_at' => null,
+				'soft_bounces'    => 0,
 			], [ 'id' => $sub['id'] ] );
 			$id = (int) $sub['id'];
 		} else {
@@ -245,7 +246,7 @@ class DXO_Subscribers {
 		global $wpdb;
 		if ( ! in_array( $status, self::STATUSES, true ) ) return false;
 		$data = [ 'status' => $status ];
-		if ( $status === 'active' ) $data['confirmed_at'] = dxo_now();
+		if ( $status === 'active' ) { $data['confirmed_at'] = dxo_now(); $data['soft_bounces'] = 0; }
 		if ( $status === 'unsubscribed' ) $data['unsubscribed_at'] = dxo_now();
 		return false !== $wpdb->update( self::t(), $data, [ 'id' => (int) $id ] );
 	}

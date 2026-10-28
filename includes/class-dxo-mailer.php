@@ -18,6 +18,15 @@ class DXO_Mailer {
 	/** Texto plano del correo en curso, para el phpmailer_init de wp_mail. */
 	private static $alt = '';
 
+	/** Correo de rebotes (Return-Path) del envío en curso; '' = no se toca. Con VERP lleva el token. */
+	private static $sender = '';
+
+	/** El mismo correo de rebotes sin token, por si el transporte no puede llevar el "+". */
+	private static $plain = '';
+
+	/** Remitente, transporte y sendmail del PHPMailer global antes de Orbit, para devolverlos. */
+	private static $prev = null;
+
 	/** Último error de wp_mail en esta petición. */
 	private static $wp_error = '';
 
@@ -50,14 +59,29 @@ class DXO_Mailer {
 
 		self::$alt      = $text;
 		self::$wp_error = '';
+		self::$sender   = DXO_Settings::bounce_address( isset( $headers['X-Dox-Orbit'] ) ? (string) $headers['X-Dox-Orbit'] : '' );
+		self::$plain    = DXO_Settings::bounce_address( '' );
+		self::$prev     = null;
 		add_action( 'phpmailer_init', [ __CLASS__, 'add_alt_body' ] );
+		// Antes que cualquier plugin de SMTP (prioridad 10): así se guarda el estado de verdad, no el que ellos ya cambiaron.
+		add_action( 'phpmailer_init', [ __CLASS__, 'capture_state' ], 0 );
+		// Prioridad alta: los plugins de SMTP fijan su propio Sender en el suyo, y el de rebotes tiene que ir el último.
+		add_action( 'phpmailer_init', [ __CLASS__, 'set_return_path' ], 99 );
 		add_action( 'wp_mail_failed', [ __CLASS__, 'catch_wp_error' ] );
 
-		$ok = wp_mail( $to, $subject, $html, $lines );
-
-		remove_action( 'phpmailer_init', [ __CLASS__, 'add_alt_body' ] );
-		remove_action( 'wp_mail_failed', [ __CLASS__, 'catch_wp_error' ] );
-		self::$alt = '';
+		// try/finally: pase lo que pase, los hooks se quitan y el Return-Path no se escapa a otros correos de la web.
+		try {
+			$ok = wp_mail( $to, $subject, $html, $lines );
+		} finally {
+			remove_action( 'phpmailer_init', [ __CLASS__, 'add_alt_body' ] );
+			remove_action( 'phpmailer_init', [ __CLASS__, 'capture_state' ], 0 );
+			remove_action( 'phpmailer_init', [ __CLASS__, 'set_return_path' ], 99 );
+			remove_action( 'wp_mail_failed', [ __CLASS__, 'catch_wp_error' ] );
+			self::restore_phpmailer();
+			self::$alt    = '';
+			self::$sender = '';
+			self::$plain  = '';
+		}
 
 		if ( $ok ) return null;
 		return self::$wp_error !== '' ? self::$wp_error : __( 'WordPress could not send the email.', 'dox-orbit' );
@@ -66,6 +90,73 @@ class DXO_Mailer {
 	/** La versión de texto junto al HTML: los filtros de spam miran que exista. */
 	public static function add_alt_body( $phpmailer ) {
 		if ( self::$alt !== '' ) $phpmailer->AltBody = self::$alt;
+	}
+
+	/** Guarda cómo estaba el PHPMailer global justo antes de que nadie lo toque. */
+	public static function capture_state( $phpmailer ) {
+		if ( self::$prev === null && is_object( $phpmailer ) ) {
+			self::$prev = [ 'sender' => $phpmailer->Sender, 'mailer' => $phpmailer->Mailer, 'sendmail' => $phpmailer->Sendmail ];
+		}
+	}
+
+	/**
+	 * wp_mail() reutiliza un único PHPMailer en toda la petición y nunca vacía
+	 * Sender: sin esto, el siguiente correo de la web (WooCommerce...) saldría con
+	 * el Return-Path y el token de Orbit.
+	 */
+	private static function restore_phpmailer() {
+		global $phpmailer;
+		if ( self::$prev !== null && is_object( $phpmailer ) && $phpmailer instanceof PHPMailer\PHPMailer\PHPMailer ) {
+			$phpmailer->Sender   = self::$prev['sender'];
+			$phpmailer->Mailer   = self::$prev['mailer'];
+			$phpmailer->Sendmail = self::$prev['sendmail'];
+		}
+		self::$prev = null;
+	}
+
+	/**
+	 * El remitente del sobre (Return-Path) es el buzón de rebotes. Solo mientras
+	 * dura el wp_mail de Orbit: el hook se quita después y el PHPMailer se deja como estaba.
+	 */
+	public static function set_return_path( $phpmailer ) {
+		if ( self::$sender === '' ) return;
+		$plan = self::plan_return_path( (string) $phpmailer->Mailer, self::$sender, self::$plain, self::sendmail_binary(), stripos( PHP_OS, 'WIN' ) === 0 );
+		if ( $plan['mailer'] === 'sendmail' ) {
+			$phpmailer->isSendmail();
+			$phpmailer->Sendmail = $plan['sendmail'];
+		}
+		$phpmailer->Sender = $plan['sender'];
+	}
+
+	/**
+	 * Qué Return-Path puede llevar cada transporte. Con SMTP va tal cual. Con mail() o
+	 * sendmail, PHPMailer solo pasa -f<Sender> si la dirección es "segura para la shell",
+	 * y el "+" del VERP no lo es: en ese caso se manda con sendmail directo, pasando el -f
+	 * nosotros (PHPMailer le hace escapeshellcmd, que deja en paz "+" y "@"). Si no se puede
+	 * con garantías, se cae a la dirección sin token (queda la cabecera X-Dox-Orbit).
+	 * Pura, sin WordPress: la prueba tests/run.php.
+	 *
+	 * @param string $binary ruta absoluta del sendmail ('' si no hay uno usable)
+	 * @return array mailer ('sendmail' o null = no tocar), sendmail (comando) y sender
+	 */
+	public static function plan_return_path( $mailer, $verp, $plain, $binary, $windows ) {
+		$out = [ 'mailer' => null, 'sendmail' => '', 'sender' => $verp ];
+		if ( $mailer === 'smtp' ) return $out;
+		if ( preg_match( '/^[A-Za-z0-9@_.\-]+$/', $verp ) ) return $out; // segura: PHPMailer pondrá el -f
+		if ( in_array( $mailer, [ 'mail', 'sendmail' ], true ) && $binary !== '' && ! $windows && preg_match( '/^[A-Za-z0-9._\-]+\+[0-9a-f\-]+@[A-Za-z0-9.\-]+$/', $verp ) ) {
+			return [ 'mailer' => 'sendmail', 'sendmail' => $binary . ' -f' . $verp, 'sender' => $verp ];
+		}
+		$out['sender'] = $plain;
+		return $out;
+	}
+
+	/** El sendmail de php.ini (primer elemento de sendmail_path), si es una ruta absoluta ejecutable. */
+	public static function sendmail_binary() {
+		$path = trim( (string) ini_get( 'sendmail_path' ) );
+		if ( $path === '' ) return '';
+		$bin = preg_split( '/\s+/', $path )[0];
+		if ( $bin === '' || $bin[0] !== '/' || ! preg_match( '/^[A-Za-z0-9._\/\-]+$/', $bin ) ) return '';
+		return @is_executable( $bin ) ? $bin : ''; // @: open_basedir avisa si la ruta queda fuera
 	}
 
 	public static function catch_wp_error( $error ) {
@@ -121,6 +212,8 @@ class DXO_Mailer {
 		$m->clearReplyTos();
 		$m->clearCustomHeaders();
 		$m->setFrom( $s['from_email'], $s['from_name'], false );
+		// Con SES no se toca el remitente del sobre: SES puede rechazar un MAIL FROM sin verificar y gestiona los rebotes él mismo.
+		$m->Sender = '';
 		if ( is_email( $s['reply_to'] ) ) $m->addReplyTo( $s['reply_to'] );
 		$m->addAddress( $to );
 		$m->Subject = $subject;

@@ -151,6 +151,17 @@ $src_name = function ( $key ) use ( $forms ) {
 						<div class="small muted" style="margin-top:4px"><?php esc_html_e( 'Last 90 days. Above 2 % hurts delivery.', 'dox-orbit' ); ?></div>
 					</div>
 					<div>
+						<div class="h"><span><?php esc_html_e( 'Bounced', 'dox-orbit' ); ?></span><b><?php echo esc_html( $health['total'] ? number_format_i18n( $health['bounce_pct'], 1 ) . ' %' : '–' ); ?></b></div>
+						<div class="dxo-meter"><i class="<?php echo $health['bounce_pct'] > 2 ? 'amber' : ''; ?>" style="width:<?php echo min( 100, $health['bounce_pct'] * 10 ); ?>%"></i></div>
+						<div class="small muted" style="margin-top:4px"><?php
+							if ( DXO_Bounces::configured() ) {
+								echo esc_html( sprintf( _n( '%s address marked as Bounced in total.', '%s addresses marked as Bounced in total.', $health['bounced'], 'dox-orbit' ), dxo_num( $health['bounced'] ) ) );
+							} else {
+								esc_html_e( 'Not read yet. Turn on bounce handling in Settings to clean the list by itself.', 'dox-orbit' );
+							}
+						?></div>
+					</div>
+					<div>
 						<div class="h"><span><?php esc_html_e( 'Unsubscribes', 'dox-orbit' ); ?></span><b><?php echo esc_html( $health['total'] ? number_format_i18n( $health['unsub_pct'], 2 ) . ' %' : '–' ); ?></b></div>
 						<div class="dxo-meter"><i class="<?php echo $health['unsub_pct'] > 1 ? 'amber' : ''; ?>" style="width:<?php echo min( 100, $health['unsub_pct'] * 20 ); ?>%"></i></div>
 						<div class="small muted" style="margin-top:4px"><?php esc_html_e( 'Gmail asks to keep spam complaints below 0.3 %.', 'dox-orbit' ); ?></div>

@@ -13,13 +13,16 @@ correo, el envío por tandas, el seguimiento y el informe.
 | Archivo | Qué hace |
 |---|---|
 | `dox-orbit.php` | Arranque: constantes, dox-core, carga de clases, Plugin Update Checker |
-| `includes/class-dxo-install.php` | Las 7 tablas `wp_dxo_*` con dbDelta. Se ponen al día solas al cambiar `DB_VERSION` |
+| `includes/class-dxo-install.php` | Las 7 tablas `wp_dxo_*` con dbDelta. Se ponen al día solas al cambiar `DB_VERSION` (ahora `2`) |
 | `includes/class-dxo-settings.php` | Ajustes (opción `dxo_settings`), marca del correo, cifrado de la contraseña de SES y utilidades de fecha y número |
 | `includes/class-dxo-renderer.php` | De los bloques al HTML del correo. PHP puro: lo prueba `tests/run.php` sin WordPress |
 | `includes/class-dxo-subscribers.php` | Suscriptores y listas: alta con doble confirmación, baja, interés, importar CSV |
 | `includes/class-dxo-campaigns.php` | Campañas: guardar, lanzar o programar, audiencia, reenviar, bienvenida, números del informe |
 | `includes/class-dxo-mailer.php` | Envía por `wp_mail` o por Amazon SES (PHPMailer propio) |
 | `includes/class-dxo-sender.php` | La cola: tandas por WP-Cron con tope por hora y candado |
+| `includes/class-dxo-bounces.php` | Rebotes: la pasada horaria que lee el buzón y aplica cada aviso (suscriptor, envío, campaña) |
+| `includes/class-dxo-bounce-parser.php` | Lee un rebote (DSN estándar y avisos de texto). PHP puro, sin WordPress: lo prueba `tests/run.php` |
+| `includes/class-dxo-imap.php` | Cliente IMAP mínimo sobre `stream_socket_client`, sin la extensión imap |
 | `includes/class-dxo-public.php` | Lo que llega de fuera: suscribirse, confirmar, baja, pixel, clic, ver en el navegador |
 | `includes/class-dxo-forms.php` | Formularios (opción `dxo_forms`): shortcode, ventana emergente y barra |
 | `includes/class-dxo-stats.php` | Los números del Resumen |
@@ -29,7 +32,7 @@ correo, el envío por tandas, el seguimiento y el informe.
 | `assets/admin.*` | CSS y JS del panel |
 | `assets/public.*` | CSS y JS de los formularios en la web |
 | `tools/i18n.py`, `tools/es.py` | Saca los textos y genera el `.pot`, `.po` y `.mo` en español. No viaja en el zip |
-| `tests/run.php` | Pruebas del renderizador. No viaja en el zip; el workflow las corre antes de cada release |
+| `tests/run.php` | Pruebas del renderizador y del lector de rebotes. No viaja en el zip; el workflow las corre antes de cada release |
 | `maqueta/panel.html` | La maqueta que aprobó David el 04/10/2026. No viaja en el zip |
 
 ## Cómo sale un correo
@@ -99,6 +102,129 @@ Nunca dentro de wp-admin ni de admin-ajax (`is_admin()`).
 - `__( '%s person' )` no encuentra la traducción si ese texto existe también como
   plural (`_n`): el `.mo` lo guarda junto a su plural. Para esos, siempre `_n()`.
 
+## Bienvenida por idioma (0.3.0)
+
+Con Polylang hay una bienvenida por idioma del sitio; el idioma va en
+`audience.lang` (JSON de `list_ids`, sin cambiar tablas). Sin Polylang todo
+sigue igual: una sola, sin idioma. `DXO_Campaigns::welcomes()` crea las que
+faltan (apagadas, con el asunto y los bloques en ese idioma vía
+`switch_to_locale`) y la bienvenida que ya existía pasa a ser la del idioma por
+defecto. `welcome_for( $sub['lang'] )` elige: slug exacto, luego las dos primeras
+letras (`es_CO` → `es`), luego el idioma por defecto, luego la primera; y solo
+se encola si esa está encendida. Al construir el correo (`DXO_Sender::build`, que
+también usan la prueba, el navegador y la vista previa) se cambia el idioma de
+WordPress al de la campaña: así "Darse de baja" y "Ver en el navegador" salen en
+su idioma. El ajuste `footer_why` es un texto libre en un solo idioma, así que
+fuera del idioma por defecto se usa el texto del plugin traducido
+(`DXO_Settings::default_why()`). El correo de confirmación (doble opt-in) sigue
+saliendo en el idioma de Ajustes, un solo texto.
+
+## Rebotes (0.4.0)
+
+Hasta la 0.3.0 Orbit solo sabía "enviado" (el servidor lo aceptó), "falló" (lo
+rechazó al momento) y aperturas o clics. Los rebotes que vuelven después, cuando
+la dirección no existe, iban al remitente del sobre por defecto y nadie los leía,
+así que `bounced` existía como estado pero nada lo ponía. Ahora:
+
+1. **Ajustes, pestaña Rebotes.** Un buzón solo para esto (`rebotes@sudominio.com`;
+   en cPanel, Cuentas de correo), con su servidor IMAP, puerto (993), usuario
+   (vacío = el correo) y contraseña. La contraseña se guarda cifrada igual que la
+   de SES (`DXO_Settings::encrypt`), no vuelve a la pantalla y vacía = se queda la
+   que había. "Probar conexión" (`ajax_bounce_test`) entra, cuenta los mensajes y
+   enseña el texto del servidor si falla; usa lo que hay en pantalla aunque no esté guardado.
+2. **Return-Path.** Con los rebotes encendidos y el correo válido, `DXO_Mailer::send`
+   pone ese buzón de remitente del sobre (`$phpmailer->Sender`) solo con el transporte
+   `wp`: con un `phpmailer_init` de prioridad 99 que solo vive mientras dura el envío
+   de Orbit (`try/finally`; los correos de WooCommerce y el resto no se tocan). Con
+   SES no se toca. `wp_mail()` reutiliza un solo PHPMailer y nunca vacía `Sender`: `DXO_Mailer`
+   guarda `Sender`, `Mailer` y `Sendmail` en `phpmailer_init` (prioridad 0) y los devuelve en el
+   `finally`. Con `mail()` o sendmail, PHPMailer solo pasa `-f` si la dirección es "segura para
+   la shell" y el `+` no lo es: si `sendmail_path` es una ruta absoluta ejecutable (y no es
+   Windows) se cambia a sendmail directo con `-f<VERP>` (`plan_return_path`); si no, se cae a la
+   dirección sin token y queda la cabecera `X-Dox-Orbit`. Un plugin de SMTP que fuerce su propio `Sender` con más prioridad le gana.
+   **Con Amazon SES** los rebotes los recibe Amazon: el buzón no los recibirá.
+3. **La pasada** (`DXO_Bounces::run`, hook `dxo_bounces`, cada hora; se programa en
+   `init` como la de envío y se quita al desactivar). Candado atómico con `INSERT IGNORE`
+   (solo gana quien ve `rows_affected = 1`; `dxo_bounces_lock` caduca a los 10 minutos con un UPDATE
+   condicional; `add_option` no vale porque mira antes con `get_option`). Entra por IMAP (`DXO_IMAP`), busca los no
+   leídos (hasta 100 por pasada; si quedan más, otra a los 60 segundos con el hook
+   `dxo_bounces_more`), baja los primeros 64 KB de cada uno con `BODY.PEEK`, los
+   interpreta (`DXO_Bounce_Parser::parse`) y: lo reconocido se marca `\Deleted` y
+   al final `EXPUNGE` (es un buzón dedicado); lo demás se marca `\Seen` y se deja.
+   El resultado (hora, bien o error, leídos, encontrados) queda en la opción
+   `dxo_bounce_status` y se enseña bajo la sección de Ajustes.
+4. **IMAP sin extensión.** TLS directo en el 993 y STARTTLS en el resto (si el
+   servidor no ofrece STARTTLS no se manda la contraseña), con el certificado
+   verificado (`verify_peer` y `verify_peer_name`; si el sistema no tiene certificados raíz se usa el `ca-bundle.crt` de WordPress), 20 segundos de espera, comandos
+   con etiqueta, literales `{n}` con tope de 2 MB y argumentos entre comillas
+   escapadas (o como literal si traen algo que no cabe).
+5. **El lector.** `parse()` devuelve `null` (no es un rebote) o `email`, `type`,
+   `status`, `reason` y `orbit`. DSN estándar (RFC 3464): `Original-Recipient` antes
+   que `Final-Recipient`, `Action: failed` es rebote (`delayed`, `relayed`,
+   `delivered` se ignoran), `5.x.x` definitivo y `4.x.x` pasajero. Avisos de texto
+   (Exim, Postfix, Gmail, Microsoft, Yahoo): se busca el código SMTP y la frase y se
+   saca la dirección del formato de cada uno. `X-Dox-Orbit` se busca en cualquier
+   parte del mensaje devuelto. Las respuestas automáticas (`Auto-Submitted`,
+   `X-Autoreply`, "fuera de la oficina") no son rebotes, **salvo que las mande el
+   servidor de correo**: Exim y Postfix marcan sus propios avisos con
+   `Auto-Submitted: auto-replied`. Tipos: `hard` (no existe), `soft` (buzón lleno,
+   4.x.x, 5.2.2 y 5.2.3/5.3.4) y `block` (5.7.x o frases de spam, reputación,
+   DMARC...: dice algo de nosotros, no de la dirección; no se toca al suscriptor).
+6. **VERP.** Con "Usar direcciones con más" (`bounce_verp`, encendido por defecto) y el
+   transporte `wp`, el Return-Path de cada correo de campaña es
+   `buzón+campaña-destinatario-firma@dominio` (con guiones, no puntos; `DXO_Settings::bounce_address( $token )`,
+   con el token de su `X-Dox-Orbit`). Muchos NDR (Microsoft, Yahoo, Exim sin el mensaje
+   devuelto) no traen la cabecera original, pero sí llegan dirigidos a esa dirección:
+   el lector la busca en `Delivered-To`, `X-Original-To`, `Envelope-To`,
+   `X-Envelope-To`, `Original-Recipient` y `To` (`parse( $raw, $bounce_email )` solo
+   acepta direcciones de ese buzón). VERP manda sobre `X-Dox-Orbit`, que queda como segundo
+   camino. El lector acepta también el token antiguo con puntos.
+   **Carpetas de Dovecot (cPanel):** con `lmtp_save_to_detail_mailbox` el aviso a `buzón+token@` no
+   va a INBOX sino a una carpeta nueva con el nombre del token (con puntos serían subcarpetas
+   anidadas, de ahí los guiones). `DXO_Bounces::sweep` lista las carpetas (`LIST "" "*"`, con el
+   separador que diga el servidor), procesa INBOX (no leídos) y cada carpeta cuyo nombre sea un
+   token (todos los mensajes; el nombre de la carpeta vale como token si las cabeceras no lo
+   traen), borra los verificados, hace `EXPUNGE` y elimina la carpeta si queda vacía, y después
+   las intermedias numéricas vacías del formato antiguo (`INBOX.1`, `INBOX.1.3`). Lo no
+   verificable deja la carpeta y se marca leído. Gmail y Microsoft 365 lo dejan en INBOX. Si el lector no saca la dirección que falló pero el token VERP es válido,
+   se usa el correo del envío. Lo que se reconoce como rebote pero no se puede verificar
+   se marca leído y **no se borra**; solo lo verificado y aplicado se borra.
+7. **Aplicar.** El buzón es público (es el Return-Path), así que un aviso falso no
+   puede tocar a nadie: `X-Dox-Orbit` lleva `campaña.destinatario.firma` (los 10
+   primeros hex de un HMAC-SHA256 con `wp_salt('auth')`, `DXO_Bounces::sign`). Solo
+   si la firma es válida **y** el correo de ese envío es el de la dirección que
+   rebotó se actúa; si no, no se toca nada y se cuenta como "no verificado" en el
+   estado de la última pasada. No se adivina el envío por el correo. Los correos que
+   no son de campaña (confirmación, prueba) no tienen envío y por tanto no pueden
+   cambiar a ningún suscriptor.
+   `recipients.bounced_at` y `bounce_reason` ("hard 5.1.1: motivo"), `campaigns.bounced`
+   +1 y un evento `bounce`; un aviso ya anotado en ese envío no se cuenta dos veces.
+   Definitivo: el suscriptor pasa a `bounced` (si no se dio de baja él). Pasajero:
+   `subscribers.soft_bounces` +1 (una vez por envío: la marca `bounced_at` de ese
+   envío evita repetir) y al tercero pasa a `bounced`; solo un clic (`DXO_Public`)
+   lo pone a cero, no las aperturas (Apple MPP y los antivirus las disparan solos). Reactivar a mano o volver a apuntarse también.
+8. **Nunca se vuelve a escribir** a un `bounced`: `send_one` salta a quien no está
+   activo, la audiencia solo toma activos, la bienvenida solo se encola a activos y
+   la confirmación solo se reenvía a pendientes. Si la misma dirección se apunta otra
+   vez desde un formulario, `DXO_Subscribers::subscribe` sigue como siempre (pasa a
+   `pending` y recibe el correo de confirmación, o a `active` si la doble
+   confirmación está apagada): no se reactiva a escondidas.
+9. **Esquema (`DB_VERSION` 2):** `recipients.bounced_at`, `recipients.bounce_reason`,
+   `subscribers.soft_bounces`, `campaigns.bounced`. `maybe_upgrade` corre en
+   `plugins_loaded` y vuelve a pasar dbDelta solo con que cambie el número.
+10. **Informe y Resumen.** El informe suma "rebotados" (cifra y %) y una tarjeta con
+   las direcciones que rebotaron (tipo, motivo, si ya salió de la lista). El Resumen
+   suma "Rebotados" a la salud de la lista y cuenta en su nota.
+
+Los avisos de rebote **pueden traer datos de terceros** (es correo de internet):
+nada se ejecuta, el texto se limita y todo lo que se pinta va con `esc_html`.
+
+## Las tarjetas de bienvenida (0.4.0)
+
+La tarjeta de cada bienvenida en Campañas enseña siempre "N enviados · X %
+abiertos · Informe", también con 0 enviados, para que el informe se encuentre desde
+el primer día. El informe de una campaña sin destinatarios sale con ceros y guiones.
+
 ## Traducción
 
 El código está en inglés y trae el español (`languages/dox-orbit-es_ES.*`).
@@ -122,5 +248,5 @@ la tarea programada. Las tablas `wp_dxo_*` y las opciones `dxo_*` se borran a ma
 ## Pendiente
 
 - Casilla "Quiero recibir novedades" en el checkout de WooCommerce.
-- Rebotes y quejas de Amazon SES por SNS (como `acg_mail`).
+- Quejas (marcar como spam) y rebotes de Amazon SES por SNS (como `acg_mail`): el buzón IMAP no los ve con SES.
 - Filtro de bots en los clics (los antivirus de Outlook abren todos los enlaces).

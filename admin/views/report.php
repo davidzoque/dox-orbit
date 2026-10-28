@@ -64,8 +64,10 @@ if ( $c['started_at'] ) {
 	foreach ( [ 0, 6, 12, 18, 23 ] as $h ) $labels[ $h ] = wp_date( get_option( 'time_format' ), $start + $h * HOUR_IN_SECONDS );
 }
 $top_links = $links ? max( 1, max( array_map( 'intval', array_column( $links, 'clicks' ) ) ) ) : 1;
-$not_open  = max( 0, $st['sent'] - $st['opened'] );
-$not_click = max( 0, $st['sent'] - $st['clicked'] );
+// Entregados: los que salieron menos los que rebotaron. Aperturas, clics y bajas se miden sobre ellos.
+$delivered = max( 0, $st['sent'] - $st['bounced'] );
+$not_open  = max( 0, $delivered - $st['opened'] );
+$not_click = max( 0, $delivered - $st['clicked'] );
 
 // Diferencia con la media de las otras campañas.
 $vs = '';
@@ -79,6 +81,7 @@ if ( ! $welcome && $avg && $avg['campaigns'] > 1 && $st['sent'] && $avg['sent'] 
 ?>
 <div class="dxo-top">
 	<div style="min-width:0"><div class="crumb"><a href="<?php echo esc_url( DXO_Admin::url( 'report' ) ); ?>"><?php esc_html_e( 'Reports', 'dox-orbit' ); ?></a></div><h1><?php echo esc_html( $c['subject'] ); ?></h1></div>
+	<?php if ( DXO_Campaigns::lang_name( $c ) !== '' ) : ?><span class="dxo-pill p-info"><?php echo esc_html( DXO_Campaigns::lang_name( $c ) ); ?></span><?php endif; ?>
 	<?php echo DXO_Admin::status_pill( $c, $st ); // phpcs:ignore ?>
 	<div class="sp"></div>
 	<?php if ( ! $welcome && in_array( $c['status'], [ 'sent', 'cancelled' ], true ) && $st['sent'] ) : ?>
@@ -97,13 +100,14 @@ if ( ! $welcome && $avg && $avg['campaigns'] > 1 && $st['sent'] && $avg['sent'] 
 
 	<div class="dxo-stats" data-anim>
 		<div class="lead">
-			<div class="n"><?php echo esc_html( dxo_pct( $st['opened'], $st['sent'] ) ); ?></div>
+			<div class="n"><?php echo esc_html( dxo_pct( $st['opened'], $delivered ) ); ?></div>
 			<div class="l"><?php esc_html_e( 'opened it', 'dox-orbit' ); ?></div>
-			<div class="d"><?php echo esc_html( sprintf( __( '%1$s of %2$s', 'dox-orbit' ), dxo_num( $st['opened'] ), dxo_num( $st['sent'] ) ) . ( $vs ? ' · ' . $vs : '' ) ); ?></div>
+			<div class="d"><?php echo esc_html( sprintf( __( '%1$s of %2$s', 'dox-orbit' ), dxo_num( $st['opened'] ), dxo_num( $delivered ) ) . ( $vs ? ' · ' . $vs : '' ) ); ?></div>
 		</div>
-		<div><div class="n"><?php echo esc_html( dxo_pct( $st['clicked'], $st['sent'] ) ); ?></div><div class="l"><?php esc_html_e( 'clicked', 'dox-orbit' ); ?></div><div class="d"><?php echo esc_html( sprintf( _n( '%s person', '%s people', $st['clicked'], 'dox-orbit' ), dxo_num( $st['clicked'] ) ) ); ?></div></div>
-		<div><div class="n"><?php echo esc_html( dxo_num( $st['sent'] ) ); ?></div><div class="l"><?php esc_html_e( 'delivered', 'dox-orbit' ); ?></div><div class="d"><?php echo esc_html( $st['failed'] ? sprintf( _n( '%s failed', '%s failed', $st['failed'], 'dox-orbit' ), dxo_num( $st['failed'] ) ) : __( 'No failures', 'dox-orbit' ) ); ?></div></div>
-		<div><div class="n"><?php echo esc_html( dxo_num( $st['unsubscribed'] ) ); ?></div><div class="l"><?php esc_html_e( 'unsubscribed', 'dox-orbit' ); ?></div><div class="d"><?php echo esc_html( dxo_pct( $st['unsubscribed'], $st['sent'], 2 ) ); ?></div></div>
+		<div><div class="n"><?php echo esc_html( dxo_pct( $st['clicked'], $delivered ) ); ?></div><div class="l"><?php esc_html_e( 'clicked', 'dox-orbit' ); ?></div><div class="d"><?php echo esc_html( sprintf( _n( '%s person', '%s people', $st['clicked'], 'dox-orbit' ), dxo_num( $st['clicked'] ) ) ); ?></div></div>
+		<div><div class="n"><?php echo esc_html( dxo_num( $delivered ) ); ?></div><div class="l"><?php esc_html_e( 'delivered', 'dox-orbit' ); ?></div><div class="d"><?php echo esc_html( $st['failed'] ? sprintf( _n( '%s failed', '%s failed', $st['failed'], 'dox-orbit' ), dxo_num( $st['failed'] ) ) : __( 'No failures', 'dox-orbit' ) ); ?></div></div>
+		<div><div class="n"><?php echo esc_html( dxo_num( $st['unsubscribed'] ) ); ?></div><div class="l"><?php esc_html_e( 'unsubscribed', 'dox-orbit' ); ?></div><div class="d"><?php echo esc_html( dxo_pct( $st['unsubscribed'], $delivered, 2 ) ); ?></div></div>
+		<div><div class="n"><?php echo esc_html( dxo_num( $st['bounced'] ) ); ?></div><div class="l"><?php esc_html_e( 'bounced', 'dox-orbit' ); ?></div><div class="d"><?php echo esc_html( $st['bounced'] ? dxo_pct( $st['bounced'], $st['sent'], 2 ) : ( DXO_Bounces::configured() ? __( 'None so far', 'dox-orbit' ) : __( 'Not tracked', 'dox-orbit' ) ) ); ?></div></div>
 	</div>
 
 	<div class="dxo-row" style="margin-top:20px">
@@ -148,6 +152,37 @@ if ( ! $welcome && $avg && $avg['campaigns'] > 1 && $st['sent'] && $avg['sent'] 
 			<?php foreach ( $provs as $p ) : ?>
 				<div><div class="n"><?php echo esc_html( dxo_pct( $p['opened'], $p['sent'], 0 ) ); ?></div><div class="l"><?php echo esc_html( $p['name'] ); ?></div><div class="d"><?php echo esc_html( sprintf( _n( '%s person', '%s people', $p['sent'], 'dox-orbit' ), dxo_num( $p['sent'] ) ) ); ?></div></div>
 			<?php endforeach; ?>
+		</div>
+	<?php endif; ?>
+
+	<?php if ( $st['bounced'] ) :
+		$bounces = DXO_Campaigns::bounced_list( $c['id'], 25 );
+		$kinds   = [
+			'hard'  => [ 'p-bad', __( 'Does not exist', 'dox-orbit' ) ],
+			'soft'  => [ 'p-warn', __( 'Temporary', 'dox-orbit' ) ],
+			'block' => [ 'p-gray', __( 'Rejected', 'dox-orbit' ) ],
+		];
+		?>
+		<div class="dxo-card" data-anim style="margin-top:20px">
+			<div class="dxo-card-h"><h3><?php esc_html_e( 'Emails that bounced', 'dox-orbit' ); ?></h3><div class="sp"></div><span class="small muted"><?php echo esc_html( sprintf( __( 'Last %s', 'dox-orbit' ), dxo_num( count( $bounces ) ) ) ); ?></span></div>
+			<div class="dxo-table-wrap"><table class="dxo-table">
+				<thead><tr><th><?php esc_html_e( 'Address', 'dox-orbit' ); ?></th><th><?php esc_html_e( 'What happened', 'dox-orbit' ); ?></th><th class="dxo-hide-sm"><?php esc_html_e( 'Reason', 'dox-orbit' ); ?></th><th class="dxo-hide-sm"><?php esc_html_e( 'When', 'dox-orbit' ); ?></th></tr></thead>
+				<tbody>
+				<?php foreach ( $bounces as $b ) :
+					$kind = 'hard';
+					$why  = (string) $b['bounce_reason'];
+					if ( preg_match( '/^(hard|soft|block)(?: [0-9.]+)?: ?(.*)$/s', $why, $mm ) ) { $kind = $mm[1]; $why = $mm[2]; }
+					$k = $kinds[ $kind ];
+					?>
+					<tr>
+						<td><div class="t"><?php echo esc_html( $b['email'] ); ?></div></td>
+						<td><span class="dxo-pill <?php echo esc_attr( $k[0] ); ?>"><span class="dot"></span><?php echo esc_html( $k[1] ); ?></span><?php if ( $b['sub_status'] === 'bounced' ) : ?> <span class="dxo-pill p-gray"><?php esc_html_e( 'Removed from the list', 'dox-orbit' ); ?></span><?php endif; ?></td>
+						<td class="dxo-hide-sm"><div class="s" title="<?php echo esc_attr( $why ); ?>"><?php echo esc_html( wp_html_excerpt( $why, 90, '…' ) ); ?></div></td>
+						<td class="dxo-hide-sm"><?php echo esc_html( dxo_ago( $b['bounced_at'] ) ); ?></td>
+					</tr>
+				<?php endforeach; ?>
+				</tbody>
+			</table></div>
 		</div>
 	<?php endif; ?>
 

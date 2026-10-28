@@ -3,7 +3,7 @@
  * Plugin Name:       Dox Orbit
  * Plugin URI:        https://doxstudio.com
  * Description:       Email marketing for WordPress and WooCommerce, from your own site: subscription forms with double opt-in, a block editor, sending in batches through the site's email, and opens, clicks and unsubscribes in every report.
- * Version:           0.2.2
+ * Version:           0.4.0
  * Author:            Dox Studio
  * Author URI:        https://doxstudio.com
  * License:           GPL v2 or later
@@ -18,7 +18,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'DXO_VERSION', '0.2.2' );
+define( 'DXO_VERSION', '0.4.0' );
 define( 'DXO_FILE', __FILE__ );
 define( 'DXO_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DXO_URL', plugin_dir_url( __FILE__ ) );
@@ -36,6 +36,14 @@ function dxo_asset_ver( $file ) {
 add_action( 'init', function () {
 	load_plugin_textdomain( 'dox-orbit', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
 }, 1 );
+
+// Desde WP 6.5, switch_to_locale() y restore_previous_locale() descargan los textos y
+// los recargan solos "a demanda", y esa carga no pasa por la ruta del plugin ni por el
+// filtro de abajo (es_CO saldría en inglés). Al cambiar de idioma se vuelve a cargar a mano.
+add_action( 'change_locale', function () {
+	unload_textdomain( 'dox-orbit', true );
+	load_plugin_textdomain( 'dox-orbit', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+} );
 
 add_filter( 'load_textdomain_mofile', function ( $mofile, $domain ) {
 	if ( 'dox-orbit' !== $domain ) return $mofile;
@@ -64,6 +72,9 @@ require_once DXO_PATH . 'includes/class-dxo-subscribers.php';
 require_once DXO_PATH . 'includes/class-dxo-campaigns.php';
 require_once DXO_PATH . 'includes/class-dxo-mailer.php';
 require_once DXO_PATH . 'includes/class-dxo-sender.php';
+require_once DXO_PATH . 'includes/class-dxo-bounce-parser.php';
+require_once DXO_PATH . 'includes/class-dxo-imap.php';
+require_once DXO_PATH . 'includes/class-dxo-bounces.php';
 require_once DXO_PATH . 'includes/class-dxo-forms.php';
 require_once DXO_PATH . 'includes/class-dxo-public.php';
 require_once DXO_PATH . 'includes/class-dxo-stats.php';
@@ -79,6 +90,7 @@ register_deactivation_hook( __FILE__, [ 'DXO_Install', 'deactivate' ] );
 add_action( 'plugins_loaded', [ 'DXO_Install', 'maybe_upgrade' ] );
 
 DXO_Sender::init();
+DXO_Bounces::init();
 DXO_Public::init();
 DXO_Forms::init();
 if ( is_admin() ) {

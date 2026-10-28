@@ -12,6 +12,13 @@ class DXO_Settings {
 
 	const OPTION = 'dxo_settings';
 
+	/** El texto de "por qué lo recibes" que trae el plugin, en el idioma de WordPress en este momento. */
+	public static function default_why() {
+		$site = wp_parse_url( home_url(), PHP_URL_HOST );
+		$site = preg_replace( '/^www\./', '', (string) $site );
+		return sprintf( __( 'You are receiving this email because you subscribed at %s.', 'dox-orbit' ), $site );
+	}
+
 	public static function defaults() {
 		$site = wp_parse_url( home_url(), PHP_URL_HOST );
 		$site = preg_replace( '/^www\./', '', (string) $site );
@@ -35,6 +42,14 @@ class DXO_Settings {
 			'ses_port'      => 587,
 			'ses_user'      => '',
 			'ses_pass'      => '',     // cifrada; ver encrypt()
+			// Rebotes: buzón propio (Return-Path) que Orbit lee por IMAP cada hora
+			'bounce_enabled' => 0,
+			'bounce_email'   => '',
+			'bounce_verp'    => 1,      // buzón+token@dominio: cada correo identifica a su destinatario
+			'imap_host'      => '',
+			'imap_port'      => 993,
+			'imap_user'      => '',     // vacío = el correo de rebotes
+			'imap_pass'      => '',     // cifrada; ver encrypt()
 			// Seguimiento
 			'track_opens'   => 1,
 			'track_clicks'  => 1,
@@ -46,7 +61,7 @@ class DXO_Settings {
 			'confirm_button'  => __( 'Yes, subscribe me', 'dox-orbit' ),
 			'confirmed_title' => __( 'You are subscribed', 'dox-orbit' ),
 			'confirmed_text'  => __( 'Thanks for confirming. The next email will reach your inbox.', 'dox-orbit' ),
-			'footer_why'      => sprintf( __( 'You are receiving this email because you subscribed at %s.', 'dox-orbit' ), $site ),
+			'footer_why'      => self::default_why(),
 			// Bienvenida
 			'welcome_id'    => 0,
 		];
@@ -86,8 +101,26 @@ class DXO_Settings {
 		];
 	}
 
-	// ─── Contraseña de SES ──────────────────────────────────────────────────
-	// Se guarda cifrada con las llaves de wp-config: una copia de la base de
+	/**
+	 * El correo de rebotes si está activado y es válido; si no, '' (no se toca el Return-Path).
+	 * Con VERP y un token "campaña.destinatario.firma" sale como buzón+token@dominio.
+	 */
+	public static function bounce_address( $token = '' ) {
+		$s = self::all();
+		if ( empty( $s['bounce_enabled'] ) ) return '';
+		$e = trim( (string) $s['bounce_email'] );
+		if ( ! is_email( $e ) ) return '';
+		$pos = strrpos( $e, '@' );
+		if ( ! empty( $s['bounce_verp'] ) && $pos !== false && preg_match( '/^\d{1,10}\.\d{1,10}\.[a-f0-9]{10}$/', (string) $token ) ) {
+			// Con '-' y no '.': Dovecot guarda el aviso en una carpeta con el nombre del token y los puntos serían subcarpetas.
+			$plus = substr( $e, 0, $pos ) . '+' . str_replace( '.', '-', $token ) . '@' . substr( $e, $pos + 1 );
+			if ( is_email( $plus ) ) return $plus;
+		}
+		return $e;
+	}
+
+	// ─── Contraseñas de SES y del buzón de rebotes ──────────────────────────
+	// Se guardan cifradas con las llaves de wp-config: una copia de la base de
 	// datos sola no la revela.
 
 	private static function key() {

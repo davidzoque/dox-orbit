@@ -195,10 +195,12 @@
 	}
 
 	// ─── Bienvenida encendida o apagada ───
-	var wl = $('[data-welcome]', app);
-	if (wl) wl.addEventListener('change', function () {
-		var on = wl.checked;
-		ajax('welcome_toggle', { on: on ? 1 : 0 }).then(function () { location.reload(); }).catch(function (e) { wl.checked = !on; toast(e.message, true); });
+	// Una por idioma con Polylang: cada interruptor lleva el id de su bienvenida.
+	$$('[data-welcome]', app).forEach(function (wl) {
+		wl.addEventListener('change', function () {
+			var on = wl.checked;
+			ajax('welcome_toggle', { id: wl.getAttribute('data-welcome'), on: on ? 1 : 0 }).then(function () { location.reload(); }).catch(function (e) { wl.checked = !on; toast(e.message, true); });
+		});
 	});
 
 	var views = { edit: editor, subscribers: subscribers, forms: forms, settings: settings };
@@ -550,7 +552,7 @@
 		var lastScroll = 0;
 		function renderPreview() {
 			try { lastScroll = frame.contentWindow.scrollY || 0; } catch (x) {}
-			ajax('preview', { subject: subj.value, preheader: pre.value, blocks: JSON.stringify(blocks) }).then(function (r) {
+			ajax('preview', { id: C.id, subject: subj.value, preheader: pre.value, blocks: JSON.stringify(blocks) }).then(function (r) {
 				frame.onload = function () {
 					// La vista previa mide lo que mide el correo: sin barra de scroll dentro de otra.
 					try {
@@ -919,6 +921,7 @@
 			ajax('save_settings', fields()).then(function () {
 				btn.classList.remove('is-busy');
 				$('[name=ses_pass]', form).value = '';
+				$('[name=imap_pass]', form).value = '';
 				initial = serialize(); dirtyCheck(); toast(T.saved);
 			}).catch(function (e) {
 				btn.classList.remove('is-busy'); dirtyCheck(); toast(e.message, true);
@@ -941,6 +944,22 @@
 			first.then(function () { return ajax('settings_test', { to: to }); })
 				.then(function () { btn.classList.remove('is-busy'); toast(fmt(S.test_ok, to)); })
 				.catch(function (e) { btn.classList.remove('is-busy'); toast(e.message, true); });
+		});
+
+		// Prueba del buzón de rebotes con lo que hay en pantalla (la contraseña vacía usa la guardada).
+		var bt = $('[data-bounce-test]');
+		if (bt) bt.addEventListener('click', function () {
+			var btn = this, out = $('#dxo-bounce-result'), f = fields();
+			btn.classList.add('is-busy');
+			$$('.is-error', form).forEach(function (i) { i.classList.remove('is-error'); });
+			out.style.color = ''; out.textContent = S.testing;
+			ajax('bounce_test', { bounce_email: f.bounce_email, imap_host: f.imap_host, imap_port: f.imap_port, imap_user: f.imap_user, imap_pass: f.imap_pass })
+				.then(function (res) { btn.classList.remove('is-busy'); out.style.color = 'var(--ok)'; out.textContent = res.message; })
+				.catch(function (e) {
+					btn.classList.remove('is-busy'); out.style.color = 'var(--bad)'; out.textContent = e.message;
+					var el = e.data && e.data.field ? $('[name=' + e.data.field + ']', form) : null;
+					if (el) { el.classList.add('is-error'); el.focus(); }
+				});
 		});
 	}
 })();
