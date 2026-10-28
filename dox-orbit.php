@@ -3,7 +3,7 @@
  * Plugin Name:       Dox Orbit
  * Plugin URI:        https://doxstudio.com
  * Description:       Email marketing for WordPress and WooCommerce, from your own site: subscription forms with double opt-in, a block editor or your own HTML code, sending in batches through the site's email, and opens, clicks and unsubscribes in every report.
- * Version:           0.5.1
+ * Version:           0.5.2
  * Author:            Dox Studio
  * Author URI:        https://doxstudio.com
  * License:           GPL v2 or later
@@ -18,7 +18,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'DXO_VERSION', '0.5.1' );
+define( 'DXO_VERSION', '0.5.2' );
 define( 'DXO_FILE', __FILE__ );
 define( 'DXO_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DXO_URL', plugin_dir_url( __FILE__ ) );

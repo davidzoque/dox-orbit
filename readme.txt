@@ -4,7 +4,7 @@ Tags: email marketing, newsletter, woocommerce, subscribe form, double opt-in
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.5.1
+Stable tag: 0.5.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -36,6 +36,9 @@ Do not use a mailbox that someone reads, like info@ or sales@: Orbit tidies the 
 Any mailbox that allows IMAP with a password. Hosting mailboxes (cPanel, Plesk and similar) work directly. Gmail and Google Workspace need an app password. Microsoft 365 and Outlook.com no longer allow IMAP with a password, so use a mailbox on your hosting instead. If you send with Amazon SES, SES receives the bounces itself and this mailbox will not get them.
 
 == Changelog ==
+
+= 0.5.2 =
+* The card in the Dox Plugins panel shows the full name, Dox Orbit.
 
 = 0.5.1 =
 * Settings > Bounces now recommends a mailbox only for bounces on your own hosting, explains which mailboxes work (hosting, Gmail with an app password; not Microsoft 365) and warns when the bounce mailbox is the same one the emails come from.
