@@ -64,6 +64,19 @@ class DXO_Admin {
 		return $links;
 	}
 
+	/**
+	 * Los atributos de cada botón "New campaign": sin JavaScript crea una de bloques;
+	 * con él, el panel pregunta primero si es de bloques o de código (admin.js).
+	 * Ya vienen escapados.
+	 */
+	public static function new_campaign_attrs() {
+		$blocks = wp_nonce_url( admin_url( 'admin-post.php?action=dxo_new_campaign' ), 'dxo_new' );
+		// Sin la extensión DOM de PHP no se puede limpiar HTML: solo bloques.
+		if ( ! DXO_Sanitizer::available() ) return 'href="' . esc_url( $blocks ) . '"';
+		$html   = wp_nonce_url( admin_url( 'admin-post.php?action=dxo_new_campaign&format=html' ), 'dxo_new' );
+		return 'href="' . esc_url( $blocks ) . '" data-new-campaign data-blocks-url="' . esc_url( $blocks ) . '" data-html-url="' . esc_url( $html ) . '"';
+	}
+
 	public static function url( $view = 'dashboard', array $args = [] ) {
 		$base = function_exists( 'dox_core' ) ? 'admin.php' : 'admin.php';
 		return add_query_arg( array_merge( [ 'page' => self::SLUG, 'view' => $view ], $args ), admin_url( $base ) );
@@ -88,10 +101,23 @@ class DXO_Admin {
 		if ( ! self::is_our_page() ) return;
 		wp_enqueue_style( 'dxo-inter', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap', [], null );
 		wp_enqueue_style( 'dxo-admin', DXO_URL . 'assets/admin.css', [], dxo_asset_ver( 'admin.css' ) );
-		wp_enqueue_script( 'dxo-admin', DXO_URL . 'assets/admin.js', [], dxo_asset_ver( 'admin.js' ), true );
 
 		$view = self::current_view();
 		if ( in_array( $view, [ 'edit', 'settings' ], true ) ) wp_enqueue_media();
+
+		// El editor de código que trae WordPress (CodeMirror) para el bloque HTML y las
+		// campañas de código. Devuelve false si la persona lo apagó en su perfil: entonces
+		// el campo queda como una caja de texto monoespaciada.
+		$code = false;
+		$deps = [];
+		if ( $view === 'edit' ) {
+			$code = wp_enqueue_code_editor( [
+				'type'       => 'text/html',
+				'codemirror' => [ 'lint' => false, 'gutters' => [], 'lineNumbers' => true, 'lineWrapping' => true, 'indentUnit' => 2, 'tabSize' => 2, 'indentWithTabs' => false ],
+			] );
+			if ( $code ) $deps[] = 'code-editor';
+		}
+		wp_enqueue_script( 'dxo-admin', DXO_URL . 'assets/admin.js', $deps, dxo_asset_ver( 'admin.js' ), true );
 		if ( $view === 'forms' ) {
 			wp_enqueue_style( 'dxo-public', DXO_URL . 'assets/public.css', [], dxo_asset_ver( 'public.css' ) );
 		}
@@ -101,6 +127,7 @@ class DXO_Admin {
 			'nonce' => wp_create_nonce( 'dxo' ),
 			'view'  => $view,
 			'rate'  => (int) DXO_Settings::get( 'rate_per_hour' ),
+			'codeEditor' => $code,
 			'urls'  => [
 				'campaigns' => self::url( 'campaigns' ),
 				'edit'      => self::url( 'edit' ),
@@ -129,7 +156,13 @@ class DXO_Admin {
 					'post'    => __( 'Blog post', 'dox-orbit' ),
 					'divider' => __( 'Divider', 'dox-orbit' ),
 					'spacer'  => __( 'Space', 'dox-orbit' ),
+					'html'    => __( 'HTML', 'dox-orbit' ),
 				],
+				'new_title'    => __( 'New campaign', 'dox-orbit' ),
+				'new_blocks'   => __( 'Design with blocks', 'dox-orbit' ),
+				'new_blocks_d' => __( 'Add titles, text, images and buttons and see the email as you go. The easy way.', 'dox-orbit' ),
+				'new_html'     => __( 'Paste HTML code', 'dox-orbit' ),
+				'new_html_d'   => __( 'Bring an email you already have (from a designer, an HTML template or another tool) and send it as it is.', 'dox-orbit' ),
 				'read_more'    => __( 'Read more', 'dox-orbit' ),
 				'no_posts'     => __( 'No posts found', 'dox-orbit' ),
 				'empty_block'  => __( '(empty)', 'dox-orbit' ),
@@ -317,32 +350,96 @@ class DXO_Admin {
 
 	public static function new_campaign() {
 		if ( ! current_user_can( self::CAP ) || ! check_admin_referer( 'dxo_new' ) ) wp_die( 'Forbidden' );
-		$id = DXO_Campaigns::create();
+		$id = DXO_Campaigns::create( [ 'format' => isset( $_GET['format'] ) && $_GET['format'] === 'html' && DXO_Sanitizer::available() ? 'html' : 'blocks' ] ); // phpcs:ignore -- el nonce se comprueba arriba.
 		wp_safe_redirect( self::url( 'edit', [ 'id' => $id ] ) );
 		exit;
 	}
 
+	/** El código HTML que manda el editor: en base64 (html_b64, para que ningún cortafuegos lo confunda con un ataque) o en claro. */
+	private static function posted_html() {
+		if ( isset( $_POST['html_b64'] ) ) { // phpcs:ignore
+			$dec = base64_decode( (string) self::in( 'html_b64' ), true );
+			if ( $dec === false ) self::fail( __( 'Something went wrong. Try again.', 'dox-orbit' ) );
+			return $dec;
+		}
+		return (string) self::in( 'html' );
+	}
+
 	public static function ajax_save_campaign() {
 		self::guard();
-		$data = [
-			'subject'   => self::in( 'subject' ),
-			'preheader' => self::in( 'preheader' ),
-			'blocks'    => json_decode( (string) self::in( 'blocks', '[]' ), true ) ?: [],
-		];
+		// Solo se guarda lo que llega: el editor de un formato no manda el contenido del otro.
+		$data = [];
+		foreach ( [ 'subject', 'preheader', 'format' ] as $k ) {
+			if ( isset( $_POST[ $k ] ) ) $data[ $k ] = self::in( $k );
+		}
+		if ( isset( $_POST['blocks'] ) ) $data['blocks'] = json_decode( (string) self::in( 'blocks', '[]' ), true ) ?: [];
+		if ( isset( $_POST['html'] ) || isset( $_POST['html_b64'] ) ) $data['html'] = self::posted_html();
+		if ( isset( $data['format'] ) && $data['format'] === 'html' && ! DXO_Sanitizer::available() ) self::fail( __( 'This server cannot clean HTML code (the PHP DOM extension is missing), so HTML campaigns are turned off.', 'dox-orbit' ) );
 		if ( isset( $_POST['lists'] ) ) $data['lists'] = (array) self::in( 'lists', [] );
 		$c = DXO_Campaigns::save( (int) self::in( 'id' ), $data );
 		if ( is_wp_error( $c ) ) self::fail( $c->get_error_message() );
 		wp_send_json_success( [ 'audience' => count( DXO_Campaigns::audience_ids( $c ) ), 'problems' => DXO_Campaigns::problems( $c ) ] );
 	}
 
+	/**
+	 * Los avisos del código HTML en frases. No bloquean nada: solo cosas que
+	 * conviene saber antes de enviar.
+	 */
+	public static function html_warning_texts( array $warnings ) {
+		$out = [];
+		foreach ( $warnings as $w ) {
+			switch ( $w['code'] ) {
+				case 'size':
+					/* translators: %s: size in KB */
+					$out[] = sprintf( __( 'The email weighs about %s KB. Gmail cuts off emails over 102 KB and hides the rest behind «View entire message».', 'dox-orbit' ), (int) $w['kb'] );
+					break;
+				case 'img_relative':
+					/* translators: %s: number of images */
+					$out[] = sprintf( _n( '%s image has a relative address (like /images/logo.png). In an email it needs the full address, starting with https://.', '%s images have a relative address (like /images/logo.png). In an email they need the full address, starting with https://.', (int) $w['n'], 'dox-orbit' ), (int) $w['n'] );
+					break;
+				case 'img_webp':
+					/* translators: %s: number of images */
+					$out[] = sprintf( _n( '%s image is WebP or AVIF. Outlook for Windows does not show it; use JPG or PNG.', '%s images are WebP or AVIF. Outlook for Windows does not show them; use JPG or PNG.', (int) $w['n'], 'dox-orbit' ), (int) $w['n'] );
+					break;
+				case 'img_http':
+					/* translators: %s: number of images */
+					$out[] = sprintf( _n( '%s image uses http:// and some email apps block it. Use https://.', '%s images use http:// and some email apps block them. Use https://.', (int) $w['n'], 'dox-orbit' ), (int) $w['n'] );
+					break;
+				case 'img_alt':
+					/* translators: %s: number of images */
+					$out[] = sprintf( _n( '%s image has no alt attribute. It is what is read when images are blocked.', '%s images have no alt attribute. It is what is read when images are blocked.', (int) $w['n'], 'dox-orbit' ), (int) $w['n'] );
+					break;
+				case 'css':
+					/* translators: %s: list of CSS features */
+					$out[] = sprintf( __( 'Many email apps ignore or break this CSS: %s. Tables work everywhere.', 'dox-orbit' ), implode( ', ', $w['items'] ) );
+					break;
+				case 'fonts':
+					$out[] = __( 'Custom fonts only load in some email apps (Apple Mail, iPhone). Anywhere else the fallback font is used, so always add one.', 'dox-orbit' );
+					break;
+				case 'rules':
+					/* translators: %s: number of CSS rules */
+					$out[] = sprintf( __( 'The code has too many CSS rules: %s were left out of the inlining and stay in the style tag.', 'dox-orbit' ), (int) $w['n'] );
+					break;
+				case 'removed':
+					/* translators: %s: list of removed HTML tags */
+					$out[] = sprintf( __( 'Removed from the email because email apps do not allow it: %s.', 'dox-orbit' ), implode( ', ', $w['items'] ) );
+					break;
+			}
+		}
+		return $out;
+	}
+
 	/** La vista previa: el mismo HTML que se envía, con los datos de quien la mira. */
 	public static function ajax_preview() {
 		self::guard();
 		$user   = wp_get_current_user();
+		$c      = DXO_Campaigns::get( (int) self::in( 'id' ) ) ?: [];
+		$format = self::in( 'format', $c['format'] ?? 'blocks' ) === 'html' ? 'html' : 'blocks';
 		$blocks = DXO_Renderer::normalize_blocks( json_decode( (string) self::in( 'blocks', '[]' ), true ) ?: [] );
+		$html   = self::posted_html();
+		if ( strlen( $html ) > DXO_Html_Email::MAX_BYTES ) self::fail( __( 'The HTML code is too large. Over 1 MB cannot be a good email.', 'dox-orbit' ) );
 		// Si la campaña tiene idioma, la vista previa saca los textos fijos en ese idioma.
-		$c       = DXO_Campaigns::get( (int) self::in( 'id' ) ) ?: [];
-		$entered = DXO_Campaigns::enter_lang( DXO_Campaigns::lang_of( $c ) );
+		$entered = DXO_Campaigns::enter_lang( DXO_Campaigns::render_lang( $c ) );
 		try {
 			$brand = DXO_Settings::brand();
 			if ( $c && DXO_Campaigns::is_secondary_lang( $c ) ) $brand['why'] = DXO_Settings::default_why();
@@ -351,7 +448,10 @@ class DXO_Admin {
 			DXO_Campaigns::leave_lang( $entered );
 		}
 		$render = DXO_Renderer::render_email( [
+			'preview'         => true, // lo preparado no se guarda en la base: una vista previa por tecla
+			'format'          => $format,
 			'blocks'          => $blocks,
+			'html'            => $html,
 			'brand'           => $brand,
 			'subject'         => (string) self::in( 'subject' ),
 			'preheader'       => (string) self::in( 'preheader' ),
@@ -360,7 +460,16 @@ class DXO_Admin {
 			'view_url'        => '#',
 			'strings'         => $strings,
 		] );
-		wp_send_json_success( [ 'html' => $render['html'] ] );
+		$out = [ 'html' => $render['html'] ];
+		if ( $format !== 'html' ) {
+			$n = DXO_Html_Email::modern_images_in_blocks( $blocks );
+			$out['warnings'] = $n ? self::html_warning_texts( [ [ 'code' => 'img_webp', 'n' => $n ] ] ) : [];
+		}
+		if ( $format === 'html' ) {
+			$out['warnings']  = self::html_warning_texts( DXO_Html_Email::warnings( $html ) );
+			$out['own_unsub'] = DXO_Html_Email::own_unsubscribe( $html );
+		}
+		wp_send_json_success( $out );
 	}
 
 	public static function ajax_send_test() {

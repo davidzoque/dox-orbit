@@ -41,7 +41,7 @@ $steps_left = count( array_filter( $steps, function ( $s ) { return ! $s[1]; } )
 				<?php if ( $n[2] !== '' ) : ?><span class="count"><?php echo esc_html( $n[2] ); ?></span><?php endif; ?>
 			</a>
 			<?php if ( $key === 'campaigns' ) : ?>
-				<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dxo_new_campaign' ), 'dxo_new' ) ); ?>" class="<?php echo $view === 'edit' && empty( $_GET['id'] ) ? 'on' : ''; // phpcs:ignore ?>"><?php echo DXO_Admin::icon( 'pen' ); // phpcs:ignore ?><?php esc_html_e( 'New campaign', 'dox-orbit' ); ?></a>
+				<a <?php echo DXO_Admin::new_campaign_attrs(); // phpcs:ignore -- ya escapado. ?> class="<?php echo $view === 'edit' && empty( $_GET['id'] ) ? 'on' : ''; // phpcs:ignore ?>"><?php echo DXO_Admin::icon( 'pen' ); // phpcs:ignore ?><?php esc_html_e( 'New campaign', 'dox-orbit' ); ?></a>
 			<?php endif; ?>
 		<?php endforeach; ?>
 		<div class="sep"></div>
@@ -71,6 +71,9 @@ $steps_left = count( array_filter( $steps, function ( $s ) { return ! $s[1]; } )
 				<a href="<?php echo esc_url( DXO_Admin::url( $key ) ); ?>" class="<?php echo $current === $key ? 'on' : ''; ?>"><?php echo esc_html( $n[0] ); ?></a>
 			<?php endforeach; ?>
 		</div>
+		<?php if ( ! DXO_Sanitizer::available() ) : ?>
+			<div class="notice notice-warning inline"><p><?php esc_html_e( 'This server has no PHP DOM extension, so Orbit cannot clean HTML code safely. The HTML block and HTML campaigns are turned off; blocks work as always. Ask your host to enable the DOM (php-xml) extension.', 'dox-orbit' ); ?></p></div>
+		<?php endif; ?>
 		<?php include DXO_PATH . 'admin/views/' . $view . '.php'; ?>
 	</main>
 </div>

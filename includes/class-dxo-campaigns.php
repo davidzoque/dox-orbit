@@ -27,7 +27,10 @@ class DXO_Campaigns {
 	}
 
 	private static function hydrate( array $c ) {
-		$c['blocks']   = json_decode( (string) $c['blocks'], true ) ?: [];
+		$c['blocks']   = json_decode( (string) ( $c['blocks'] ?? '' ), true ) ?: [];
+		// El formato dice cuál de los dos contenidos sale; el otro se guarda por si se vuelve.
+		$c['format']   = ( $c['format'] ?? '' ) === 'html' ? 'html' : 'blocks';
+		$c['html']     = (string) ( $c['html'] ?? '' );
 		$c['audience'] = json_decode( (string) $c['list_ids'], true );
 		if ( ! is_array( $c['audience'] ) ) $c['audience'] = [ 'lists' => [] ];
 		return $c;
@@ -51,7 +54,9 @@ class DXO_Campaigns {
 			$where .= ' AND subject LIKE %s';
 			$args[] = '%' . $wpdb->esc_like( $search ) . '%';
 		}
-		$sql = 'SELECT * FROM ' . self::t() . " WHERE $where ORDER BY FIELD(status,'sending','paused','scheduled','draft','sent','cancelled'), COALESCE(started_at, scheduled_at, updated_at) DESC LIMIT 200";
+		// Sin blocks ni html: son los campos pesados y la lista no los usa.
+		$cols = 'id, type, subject, preheader, format, list_ids, status, scheduled_at, started_at, finished_at, total, sent, failed, bounced, test_sent_at, created_at, updated_at';
+		$sql = "SELECT $cols FROM " . self::t() . " WHERE $where ORDER BY FIELD(status,'sending','paused','scheduled','draft','sent','cancelled'), COALESCE(started_at, scheduled_at, updated_at) DESC LIMIT 200";
 		$rows = $wpdb->get_results( $args ? $wpdb->prepare( $sql, $args ) : $sql, ARRAY_A ) ?: [];
 		return array_map( [ __CLASS__, 'hydrate' ], $rows );
 	}
@@ -80,6 +85,8 @@ class DXO_Campaigns {
 			'subject'    => mb_substr( (string) ( $data['subject'] ?? '' ), 0, 255 ),
 			'preheader'  => mb_substr( (string) ( $data['preheader'] ?? '' ), 0, 255 ),
 			'blocks'     => wp_json_encode( $data['blocks'] ?? self::starter_blocks() ),
+			'format'     => ( $data['format'] ?? '' ) === 'html' ? 'html' : 'blocks',
+			'html'       => (string) ( $data['html'] ?? '' ),
 			'list_ids'   => wp_json_encode( $data['audience'] ?? [ 'lists' => [ DXO_Lists::default_id() ] ] ),
 			'status'     => $data['status'] ?? 'draft',
 			'created_at' => $now,
@@ -110,6 +117,17 @@ class DXO_Campaigns {
 		if ( isset( $data['subject'] ) ) $row['subject'] = mb_substr( sanitize_text_field( $data['subject'] ), 0, 255 );
 		if ( isset( $data['preheader'] ) ) $row['preheader'] = mb_substr( sanitize_text_field( $data['preheader'] ), 0, 255 );
 		if ( isset( $data['blocks'] ) ) $row['blocks'] = wp_json_encode( DXO_Renderer::normalize_blocks( $data['blocks'] ) );
+		if ( isset( $data['format'] ) && in_array( $data['format'], [ 'blocks', 'html' ], true ) ) $row['format'] = $data['format'];
+		if ( isset( $data['html'] ) ) {
+			// El código se guarda tal cual lo escribió la persona (así el editor lo enseña igual al volver).
+			// Se limpia siempre que sale: vista previa, prueba, envío y "ver en el navegador".
+			$html = trim( (string) $data['html'] );
+			if ( strlen( $html ) > DXO_Html_Email::MAX_BYTES ) {
+				return new WP_Error( 'too_big', __( 'The HTML code is too large. Over 1 MB cannot be a good email.', 'dox-orbit' ) );
+			}
+			$row['html'] = $html;
+			if ( $html !== $c['html'] ) DXO_Html_Email::forget( $c['html'] );
+		}
 		if ( isset( $data['lists'] ) && empty( $c['audience']['resend'] ) ) {
 			$aud = [ 'lists' => array_values( array_filter( array_map( 'intval', (array) $data['lists'] ) ) ) ];
 			// El idioma de la campaña no se pierde al guardar las listas.
@@ -138,6 +156,8 @@ class DXO_Campaigns {
 			'subject'   => $c['subject'],
 			'preheader' => $c['preheader'],
 			'blocks'    => $c['blocks'],
+			'format'    => $c['format'],
+			'html'      => $c['html'],
 			'audience'  => [ 'lists' => $c['audience']['lists'] ?? [] ],
 		] );
 	}
@@ -154,6 +174,8 @@ class DXO_Campaigns {
 			'subject'   => $c['subject'],
 			'preheader' => $c['preheader'],
 			'blocks'    => $c['blocks'],
+			'format'    => $c['format'],
+			'html'      => $c['html'],
 			'audience'  => [ 'resend' => [ 'campaign_id' => (int) $id, 'who' => $who === 'not_clicked' ? 'not_clicked' : 'not_opened' ] ],
 		] );
 	}
@@ -207,22 +229,38 @@ class DXO_Campaigns {
 	public static function problems( array $c ) {
 		$p = [];
 		if ( trim( $c['subject'] ) === '' ) $p[] = __( 'Write a subject.', 'dox-orbit' );
-		$has = false;
-		foreach ( $c['blocks'] as $b ) {
-			if ( ( $b['type'] === 'text' && trim( strip_tags( $b['html'] ) ) !== '' ) || ( $b['type'] === 'heading' && $b['text'] !== '' ) || ( $b['type'] === 'image' && $b['url'] !== '' ) || $b['type'] === 'post' ) {
-				$has = true;
-				break;
+		$texts = [ $c['subject'], $c['preheader'] ];
+
+		if ( $c['format'] === 'html' ) {
+			// Sin los <style> y el <head>: lo que queda tiene que decir algo (texto o una imagen).
+			$body = preg_replace( '#<(style|script|head|title)\b.*?</\1>#is', '', $c['html'] );
+			if ( trim( html_entity_decode( strip_tags( $body ), ENT_QUOTES, 'UTF-8' ) ) === '' && stripos( $body, '<img' ) === false ) {
+				$p[] = __( 'The email is empty: paste the HTML code.', 'dox-orbit' );
+			}
+			// Las llaves del CSS no son campos.
+			$texts[] = preg_replace( '#<style\b.*?</style>#is', '', $c['html'] );
+		} else {
+			$has = false;
+			foreach ( $c['blocks'] as $b ) {
+				if ( ( $b['type'] === 'text' && trim( strip_tags( $b['html'] ) ) !== '' ) || ( $b['type'] === 'heading' && $b['text'] !== '' ) || ( $b['type'] === 'image' && $b['url'] !== '' ) || $b['type'] === 'post'
+					|| ( $b['type'] === 'html' && ( trim( strip_tags( $b['html'] ) ) !== '' || stripos( $b['html'], '<img' ) !== false ) ) ) {
+					$has = true;
+					break;
+				}
+			}
+			if ( ! $has ) $p[] = __( 'The email is empty: add a title, a text or an image.', 'dox-orbit' );
+
+			foreach ( $c['blocks'] as $b ) {
+				$texts[] = $b['text'] ?? '';
+				$texts[] = isset( $b['type'] ) && $b['type'] === 'html' ? preg_replace( '#<style\b.*?</style>#is', '', $b['html'] ) : ( $b['html'] ?? '' );
+				$texts[] = $b['url'] ?? '';
 			}
 		}
-		if ( ! $has ) $p[] = __( 'The email is empty: add a title, a text or an image.', 'dox-orbit' );
-
-		$texts = [ $c['subject'], $c['preheader'] ];
-		foreach ( $c['blocks'] as $b ) {
-			$texts[] = $b['text'] ?? '';
-			$texts[] = $b['html'] ?? '';
-			$texts[] = $b['url'] ?? '';
-		}
-		$unknown = DXO_Renderer::unknown_tags( ...$texts );
+		$unknown = array_unique( array_merge(
+			DXO_Renderer::unknown_tags( ...$texts ),
+			// {unsubscribe_url} solo se rellena en enlaces del cuerpo, no en el asunto ni en el preheader.
+			DXO_Renderer::link_tags_in( $c['subject'], $c['preheader'] )
+		) );
 		if ( $unknown ) {
 			/* translators: %s: list of unknown merge tags */
 			$p[] = sprintf( __( 'These fields cannot be filled: %s. The ones that work are {first_name}, {last_name} and {email}.', 'dox-orbit' ), implode( ', ', $unknown ) );
@@ -289,7 +327,7 @@ class DXO_Campaigns {
 	/** Los enlaces del correo, una fila por URL. Los que llevan un {campo} no se siguen. */
 	public static function register_links( array $c ) {
 		global $wpdb;
-		$html = DXO_Renderer::render_blocks( $c['blocks'], DXO_Settings::brand() );
+		$html = $c['format'] === 'html' ? DXO_Html_Email::prepare( $c['html'] ) : DXO_Renderer::render_blocks( $c['blocks'], DXO_Settings::brand() );
 		foreach ( DXO_Renderer::extract_links( $html ) as $url ) {
 			if ( strpos( $url, '{' ) !== false ) continue;
 			$wpdb->query( $wpdb->prepare( 'INSERT IGNORE INTO ' . self::t( 'links' ) . ' (campaign_id, url, url_hash) VALUES (%d, %s, %s)', $c['id'], $url, sha1( $url ) ) );
@@ -369,6 +407,18 @@ class DXO_Campaigns {
 	/** El idioma guardado en una campaña ('' = ninguno). */
 	public static function lang_of( array $c ) {
 		return (string) ( $c['audience']['lang'] ?? '' );
+	}
+
+	/**
+	 * El idioma en que se pintan los textos fijos del correo (baja, "ver en el navegador"...).
+	 * El de la campaña si lo tiene; si no, con Polylang el idioma por defecto del sitio público
+	 * (el del admin puede ser otro: un panel en inglés sobre una web en español); sin Polylang
+	 * '' = el idioma de WordPress de siempre.
+	 */
+	public static function render_lang( array $c ) {
+		$l = self::lang_of( $c );
+		if ( $l !== '' ) return $l;
+		return self::polylang() ? self::default_lang() : '';
 	}
 
 	/** El nombre del idioma de una campaña, para pintarlo en el panel ('' = no tiene). */

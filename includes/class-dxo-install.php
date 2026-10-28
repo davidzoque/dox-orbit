@@ -11,8 +11,12 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class DXO_Install {
 
-	/** Sube con cualquier cambio de esquema: maybe_upgrade() vuelve a pasar dbDelta. */
-	const DB_VERSION = '2';
+	/**
+	 * Sube con cualquier cambio de esquema: maybe_upgrade() vuelve a pasar dbDelta.
+	 * 3 (0.5.0): campaigns.format ('blocks' o 'html') y campaigns.html (el código pegado).
+	 * Las campañas que ya existían quedan en 'blocks' y con html vacío.
+	 */
+	const DB_VERSION = '3';
 
 	public static function table( $name ) {
 		global $wpdb;
@@ -96,6 +100,8 @@ class DXO_Install {
   subject varchar(255) NOT NULL DEFAULT '',
   preheader varchar(255) NOT NULL DEFAULT '',
   blocks longtext NOT NULL,
+  format varchar(10) NOT NULL DEFAULT 'blocks',
+  html longtext NOT NULL,
   list_ids varchar(255) NOT NULL DEFAULT '',
   status varchar(20) NOT NULL DEFAULT 'draft',
   scheduled_at datetime DEFAULT NULL,

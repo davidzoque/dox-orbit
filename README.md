@@ -13,9 +13,12 @@ correo, el envío por tandas, el seguimiento y el informe.
 | Archivo | Qué hace |
 |---|---|
 | `dox-orbit.php` | Arranque: constantes, dox-core, carga de clases, Plugin Update Checker |
-| `includes/class-dxo-install.php` | Las 7 tablas `wp_dxo_*` con dbDelta. Se ponen al día solas al cambiar `DB_VERSION` (ahora `2`) |
+| `includes/class-dxo-install.php` | Las 7 tablas `wp_dxo_*` con dbDelta. Se ponen al día solas al cambiar `DB_VERSION` (ahora `3`) |
 | `includes/class-dxo-settings.php` | Ajustes (opción `dxo_settings`), marca del correo, cifrado de la contraseña de SES y utilidades de fecha y número |
 | `includes/class-dxo-renderer.php` | De los bloques al HTML del correo. PHP puro: lo prueba `tests/run.php` sin WordPress |
+| `includes/class-dxo-sanitizer.php` | Limpia el HTML de un correo con DOMDocument (lista de lo permitido). PHP puro: lo prueba `tests/run.php` |
+| `includes/class-dxo-inliner.php` | Pasa el CSS de los `<style>` a cada elemento. PHP puro, igual |
+| `includes/class-dxo-html-email.php` | Correos de código: preparar (limpiar + CSS en línea, una vez por campaña), montar el de cada persona, texto plano y avisos del editor |
 | `includes/class-dxo-subscribers.php` | Suscriptores y listas: alta con doble confirmación, baja, interés, importar CSV |
 | `includes/class-dxo-campaigns.php` | Campañas: guardar, lanzar o programar, audiencia, reenviar, bienvenida, números del informe |
 | `includes/class-dxo-mailer.php` | Envía por `wp_mail` o por Amazon SES (PHPMailer propio) |
@@ -224,6 +227,83 @@ nada se ejecuta, el texto se limita y todo lo que se pinta va con `esc_html`.
 La tarjeta de cada bienvenida en Campañas enseña siempre "N enviados · X %
 abiertos · Informe", también con 0 enviados, para que el informe se encuentre desde
 el primer día. El informe de una campaña sin destinatarios sale con ceros y guiones.
+
+## Correos con código HTML (0.5.0)
+
+Dos cosas nuevas, las dos con el mismo limpiador (`DXO_Sanitizer`) y el mismo
+pasador de CSS a línea (`DXO_Inliner`):
+
+1. **Bloque "HTML"** (`type = html`) junto a título, texto, imagen... Va dentro del
+   diseño normal de Orbit (logo, pie, baja). Se limpia al guardar
+   (`normalize_blocks`) y otra vez al pintar. Su CSS se pasa a línea y lo que no
+   se puede (`@media`) sube al `<head>` del correo (`render_email` saca los
+   `<style>` del contenido). Los campos y los enlaces con seguimiento funcionan igual.
+2. **Campañas de formato `html`** ("Pegar código HTML" al crear). Dos columnas
+   nuevas en `campaigns` (`DB_VERSION` 3): `format` (`blocks` o `html`, por defecto
+   `blocks`) y `html` (longtext). **El contenido del otro formato no se borra**:
+   cambiar de formato solo cambia `format`, y se puede volver (el editor pide
+   confirmación). Valen para campañas y para la bienvenida. Se eligió columna y no
+   meterlo en el JSON de `blocks` o `list_ids` porque es lo que se lee al enviar
+   y así no se mezcla con la audiencia ni con los bloques.
+   El código se guarda **tal cual lo escribió la persona** (así el editor lo
+   enseña igual al volver y el guardado automático no le recoloca el código a medio
+   escribir) y se limpia **siempre que sale**: vista previa, prueba, envío y "ver en
+   el navegador" pasan por `DXO_Renderer::render_email` → `DXO_Html_Email::render`.
+   Tope de 1 MB al guardar.
+
+**Qué hace el envío** (`DXO_Html_Email::render`), en este orden: `prepare()` (una vez
+por campaña, se recuerda en memoria: un trozo sin `<html>`/`<body>` se mete en un
+documento mínimo, se limpia y se pasa el CSS a línea) → rellena `{unsubscribe_url}` y
+`{view_in_browser_url}` → campos (`{first_name|amigo}`, escapados) → preheader
+oculto justo después de `<body>` → **si no hay un enlace con `{unsubscribe_url}`**,
+el pie de siempre (`DXO_Renderer::footer_html`, con su idioma) antes de `</body>` →
+enlaces `http(s)` con seguimiento (mailto, tel y `#` no; la baja y "ver en el
+navegador" tampoco) → píxel de apertura antes de `</body>` → texto plano
+(`DXO_Html_Email::to_text`: enlaces "texto (url)", títulos en mayúsculas).
+Decisión: solo cuenta como baja propia un `{unsubscribe_url}` dentro de un `href`
+y fuera de un comentario; en un texto suelto o dentro de un `<!--[if mso]>` no
+cuenta y se añade el pie (nunca sale un correo sin baja). Los registros de enlaces
+al lanzar (`register_links`) salen del mismo documento ya preparado, así que
+coinciden con los que luego se reescriben.
+
+**El limpiador** quita script, iframe, object, embed, form, input, textarea, select,
+button, base, svg, meta refresh, `on*`, y `javascript:`, `vbscript:` y `data:` en
+`href`/`src`/`background`; solo deja `link` de Google Fonts; los comentarios
+condicionales de Outlook se quedan si dentro no hay nada ejecutable; en el CSS quita
+`expression()`, `behavior`, `url()` que no sea http(s) y cualquier declaración con barra
+invertida. Lo que no está en la lista de etiquetas se desenvuelve (se queda su texto).
+Un `{campo}` solo puede ser todo el `href` si es el de baja o el de "ver en el navegador":
+el nombre de una persona no decide adónde va un enlace.
+**Trampa:** libxml codifica con `%` las llaves de un `href` (`{email}` → `%7Bemail%7D`),
+así que los campos se esconden (`dxotag` + hex + `x`) mientras dura la lectura
+(`protect` / `restore`) y libxml también escribe `&ntilde;` en vez de ñ (`unentity`).
+
+**El pasador de CSS** entiende etiqueta, clase, id, compuestos, listas con comas,
+descendientes y `>`. Prioridad: `!important`, luego lo que ya traía en línea, luego
+especificidad y orden. Todo lo que no entiende (`:hover`, `[x]`, `+`, `~`) y todos
+los `@media`/`@font-face`/`@import` se quedan en un `<style>` del `<head>`; si no
+sobra nada, el `<style>` desaparece.
+
+**Revisión de la 0.5.0.** Los `{campos}` se esconden con un secreto aleatorio por lectura y solo se
+deshace lo que está en el mapa de esa lectura (antes un `dxotag<hex>x` escrito a mano se convertía en HTML: XSS).
+Lo preparado (limpio + CSS en línea + si hay baja propia + avisos) se guarda en un transient por
+`md5(código + versión)` y se borra al guardar (`DXO_Html_Email::forget`); el pasador indexa los elementos una vez y
+tiene tope de 2000 reglas. El preheader, el pie y el píxel van en dos huecos (`<!--dxo-start-->` y `<!--dxo-end-->`)
+puestos en el DOM, nunca por búsqueda de texto. Un @media que toca una propiedad la deja fuera de la línea. El código
+viaja en base64 (`html_b64`) por los cortafuegos. "Ver en el navegador" lleva Content-Security-Policy. Sin la extensión
+DOM de PHP el HTML propio se apaga con un aviso. El `>` se quita del CSS solo en atributos `style`; en un `<style>` es
+el selector hijo y solo se quita el `<`.
+
+**Editor** (`edit.php` + `admin.js`): CodeMirror de WordPress con
+`wp_enqueue_code_editor( text/html )` (sin lint, que protesta de todo lo que es
+normal en un correo); si la persona lo apagó en su perfil, queda un textarea
+monoespaciado. Vista previa en un `iframe` con `sandbox="allow-same-origin"` y sin
+`allow-scripts`. "Importar archivo .html" lee el archivo en el navegador
+(FileReader, sin subirlo). Los avisos (tamaño sobre 102 KB que Gmail corta,
+imágenes con dirección relativa o `http://`, sin `alt`, flex/grid/position/variables
+CSS, fuentes externas, lo que se quitó) salen de `DXO_Html_Email::warnings` y no bloquean.
+El JSON de datos del editor va con `JSON_HEX_TAG`: un `</script>` o un `<!--` en el
+código no puede romper la página.
 
 ## Traducción
 

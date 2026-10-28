@@ -263,6 +263,9 @@ class DXO_Public {
 		}
 		$email = DXO_Sender::build( $c, $r, $sub, null );
 		header( 'Content-Type: text/html; charset=utf-8' );
+		// Es HTML de otra persona (el de la campaña) servido desde la web: sin scripts, sin formularios, sin marcos.
+		header( "Content-Security-Policy: default-src 'none'; img-src https: http: data:; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'none'; form-action 'none'" );
+		header( 'X-Content-Type-Options: nosniff' );
 		echo $email['html']; // phpcs:ignore -- HTML generado por el renderizador, ya escapado.
 	}
 

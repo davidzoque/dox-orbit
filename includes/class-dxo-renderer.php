@@ -17,6 +17,9 @@ class DXO_Renderer {
 	/** Los campos que se rellenan con los datos de cada persona. */
 	const TAGS = [ 'first_name', 'last_name', 'email' ];
 
+	/** Los que no son datos de la persona sino enlaces: los rellena el envío (ver fill_links). */
+	const LINK_TAGS = [ 'unsubscribe_url', 'view_in_browser_url' ];
+
 	const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
 	const INK  = '#141313';
@@ -58,6 +61,17 @@ class DXO_Renderer {
 		);
 	}
 
+	/** {unsubscribe_url} y {view_in_browser_url} en textos donde no se rellenan (asunto, preheader). */
+	public static function link_tags_in( ...$texts ) {
+		$found = [];
+		foreach ( $texts as $text ) {
+			if ( preg_match_all( '/\{(' . implode( '|', self::LINK_TAGS ) . ')(?:\|[^}]*)?\}/i', (string) $text, $m ) ) {
+				foreach ( $m[1] as $name ) $found[ '{' . strtolower( $name ) . '}' ] = true;
+			}
+		}
+		return array_keys( $found );
+	}
+
 	/** Los {campos} que no se saben rellenar, de uno o varios textos. */
 	public static function unknown_tags( ...$texts ) {
 		$found = [];
@@ -65,7 +79,7 @@ class DXO_Renderer {
 			if ( preg_match_all( '/\{([a-z_]+)(?:\|[^}]*)?\}/i', (string) $text, $m ) ) {
 				foreach ( $m[1] as $name ) {
 					$name = strtolower( $name );
-					if ( ! in_array( $name, self::TAGS, true ) ) {
+					if ( ! in_array( $name, self::TAGS, true ) && ! in_array( $name, self::LINK_TAGS, true ) ) {
 						$found[ '{' . $name . '}' ] = true;
 					}
 				}
@@ -146,7 +160,7 @@ class DXO_Renderer {
 	// ─── Bloques ────────────────────────────────────────────────────────────
 
 	/** Los tipos de bloque que entiende el editor. */
-	const TYPES = [ 'heading', 'text', 'image', 'button', 'post', 'divider', 'spacer' ];
+	const TYPES = [ 'heading', 'text', 'image', 'button', 'post', 'divider', 'spacer', 'html' ];
 
 	/**
 	 * Normaliza la lista de bloques que manda el editor: tipos conocidos, campos
@@ -198,6 +212,16 @@ class DXO_Renderer {
 						'url'     => self::safe_url( $url ) ? $url : '',
 						'cta'     => trim( (string) ( $b['cta'] ?? '' ) ),
 					];
+					break;
+				case 'html':
+					// Código del propio usuario: se limpia al guardar y otra vez al pintar.
+					// El editor lo manda en base64 (html_b64) para que ningún cortafuegos lo confunda con un ataque.
+					$raw = (string) ( $b['html'] ?? '' );
+					if ( isset( $b['html_b64'] ) ) {
+						$dec = base64_decode( (string) $b['html_b64'], true );
+						$raw = $dec === false ? '' : $dec;
+					}
+					$out[] = [ 'type' => 'html', 'html' => DXO_Sanitizer::fragment( DXO_Sanitizer::cut( $raw, 200000 ) ) ];
 					break;
 				case 'divider':
 					$out[] = [ 'type' => 'divider' ];
@@ -262,6 +286,11 @@ class DXO_Renderer {
 					$rows .= '<tr><td class="dxo-pad" style="padding:4px 40px 24px 40px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid #ebe6e2;border-radius:12px;">' . $card . '</table></td></tr>';
 					break;
 
+				case 'html':
+					if ( trim( (string) ( $b['html'] ?? '' ) ) === '' ) break;
+					$rows .= '<tr><td class="dxo-pad" style="padding:0 40px 16px 40px;font-family:' . $font . ';font-size:16px;line-height:1.7;color:' . self::BODY . ';">' . DXO_Html_Email::fragment( $b['html'] ) . '</td></tr>';
+					break;
+
 				case 'divider':
 					$rows .= '<tr><td class="dxo-pad" style="padding:10px 40px 26px 40px;"><div style="height:1px;line-height:1px;font-size:1px;background:#ebe6e2;">&nbsp;</div></td></tr>';
 					break;
@@ -302,13 +331,19 @@ class DXO_Renderer {
 	/**
 	 * El correo entero de una persona.
 	 *
-	 * $o: blocks, brand, subject, preheader, fields (los datos de la persona),
-	 * unsubscribe_url, view_url, pixel_url (o null), link (callable que cambia
-	 * cada URL por la de seguimiento, o null), strings (unsubscribe, view).
+	 * $o: format ('blocks' o 'html'), blocks o html, brand, subject, preheader,
+	 * fields (los datos de la persona), unsubscribe_url, view_url, pixel_url (o
+	 * null), link (callable que cambia cada URL por la de seguimiento, o null),
+	 * strings (unsubscribe, view).
 	 *
 	 * @return array [ 'html' => ..., 'text' => ... ]
 	 */
 	public static function render_email( array $o ) {
+		// Las campañas hechas con código pegado siguen su propio camino.
+		if ( ( $o['format'] ?? 'blocks' ) === 'html' ) {
+			return DXO_Html_Email::render( $o );
+		}
+
 		$brand  = $o['brand'] ?? [];
 		$fields = $o['fields'] ?? [];
 		$str    = wp_parse_args_lite( $o['strings'] ?? [], [ 'unsubscribe' => 'Unsubscribe', 'view' => 'View in browser', 'lang' => 'en' ] );
@@ -316,6 +351,15 @@ class DXO_Renderer {
 
 		$content = self::render_blocks( $o['blocks'] ?? [], $brand );
 		$content = self::merge( $content, $fields, true );
+
+		// Un bloque HTML puede traer su <style> (@media...): al <head>, que es donde Gmail lo lee.
+		$extra_css = '';
+		if ( stripos( $content, '<style' ) !== false ) {
+			$content = preg_replace_callback( '#<style\b[^>]*>(.*?)</style>#is', function ( $m ) use ( &$extra_css ) {
+				$extra_css .= '<style>' . $m[1] . '</style>';
+				return '';
+			}, $content );
+		}
 
 		// Cabecera: el logo, o el nombre de la marca en texto si no hay logo.
 		if ( ! empty( $brand['logo_url'] ) ) {
@@ -325,24 +369,14 @@ class DXO_Renderer {
 		}
 		$header = '<tr><td class="dxo-pad" style="padding:34px 40px 26px 40px;">' . $head . '</td></tr>';
 
-		$unsubscribe = self::esc( (string) ( $o['unsubscribe_url'] ?? '#' ) );
-		$view        = ! empty( $o['view_url'] ) ? ' &middot; <a href="' . self::esc( $o['view_url'] ) . '" style="color:' . self::SOFT . ';text-decoration:underline;">' . self::esc( $str['view'] ) . '</a>' : '';
-		$address     = self::esc( (string) ( $brand['address'] ?? '' ) );
-		$company     = self::esc( (string) ( $brand['company'] ?? '' ) );
-		$why         = self::esc( (string) ( $brand['why'] ?? '' ) );
-
-		// Se escapa entero y no solo los campos: es texto.
-		$preheader = self::esc( trim( self::merge( (string) ( $o['preheader'] ?? '' ), $fields, false ) ) );
-		// El relleno invisible impide que, después del texto, la vista previa de la
-		// bandeja se llene con lo primero del cuerpo.
-		$preheaderHtml = $preheader === '' ? '' : '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:' . self::PAGE . ';">' . $preheader
-			. str_repeat( '&#847;&zwnj;&nbsp;', 40 ) . '</div>';
+		$preheaderHtml = self::preheader_html( $o['preheader'] ?? '', $fields );
+		$footer        = self::footer_html( $brand, (string) ( $o['unsubscribe_url'] ?? '#' ), (string) ( $o['view_url'] ?? '' ), $str );
 
 		$pixel = empty( $o['pixel_url'] ) ? '' : '<img src="' . self::esc( $o['pixel_url'] ) . '" width="1" height="1" alt="" style="display:block;border:0;width:1px;height:1px;">';
 
-		// El único <style>: en el móvil, menos margen a los lados. Si un programa
+		// El <style> propio: en el móvil, menos margen a los lados. Si un programa
 		// de correo lo ignora, se ve igual que en el ordenador, que también vale.
-		$css = '<style>@media (max-width:600px){.dxo-pad{padding-left:24px!important;padding-right:24px!important}.dxo-outer{padding:12px 8px!important}}</style>';
+		$css = '<style>@media (max-width:600px){.dxo-pad{padding-left:24px!important;padding-right:24px!important}.dxo-outer{padding:12px 8px!important}}</style>' . $extra_css;
 
 		$html = '<!doctype html><html lang="' . self::esc( $str['lang'] ) . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
 			. '<meta name="x-apple-disable-message-reformatting"><title>' . self::esc( self::merge( (string) ( $o['subject'] ?? '' ), $fields, false ) ) . '</title>' . $css . '</head>'
@@ -350,12 +384,11 @@ class DXO_Renderer {
 			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:' . self::PAGE . ';"><tr><td class="dxo-outer" align="center" style="padding:32px 16px;">'
 			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;background:#ffffff;border-radius:16px;">'
 			. $header . $content . '<tr><td style="height:16px;line-height:16px;font-size:1px;">&nbsp;</td></tr></table>'
-			. '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;"><tr><td align="center" style="padding:22px 24px 0 24px;font-family:' . $font . ';font-size:12px;line-height:1.7;color:' . self::SOFT . ';">'
-			. ( $why !== '' ? $why . '<br>' : '' )
-			. '<a href="' . $unsubscribe . '" style="color:' . self::SOFT . ';text-decoration:underline;">' . self::esc( $str['unsubscribe'] ) . '</a>' . $view . '<br>'
-			. $company . ( $address !== '' ? ' &middot; ' . $address : '' )
-			. '</td></tr></table>' . $pixel
+			. $footer . $pixel
 			. '</td></tr></table></body></html>';
+
+		// {unsubscribe_url} y {view_in_browser_url} escritos a mano en un bloque.
+		$html = self::fill_links( $html, (string) ( $o['unsubscribe_url'] ?? '#' ), (string) ( $o['view_url'] ?? '' ) );
 
 		// Los enlaces, cambiados por los de seguimiento. La baja y "ver en el
 		// navegador" no: tienen que funcionar siempre y sin dar vueltas.
@@ -364,6 +397,46 @@ class DXO_Renderer {
 		}
 
 		return [ 'html' => $html, 'text' => self::to_text( $html ) ];
+	}
+
+	/**
+	 * El texto oculto que la bandeja enseña junto al asunto. El relleno invisible
+	 * impide que, después del texto, la vista previa se llene con lo primero del cuerpo.
+	 */
+	public static function preheader_html( $preheader, array $fields ) {
+		// Se escapa entero y no solo los campos: es texto.
+		$text = self::esc( trim( self::merge( (string) $preheader, $fields, false ) ) );
+		if ( $text === '' ) return '';
+		return '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:' . self::PAGE . ';">' . $text . str_repeat( '&#847;&zwnj;&nbsp;', 40 ) . '</div>';
+	}
+
+	/** El pie de siempre: por qué lo recibe, la baja, "ver en el navegador" y la empresa. */
+	public static function footer_html( array $brand, $unsubscribe_url, $view_url, array $str ) {
+		$str     = wp_parse_args_lite( $str, [ 'unsubscribe' => 'Unsubscribe', 'view' => 'View in browser', 'lang' => 'en' ] );
+		$font    = self::FONT;
+		$unsub   = self::esc( (string) $unsubscribe_url );
+		$view    = $view_url !== '' ? ' &middot; <a href="' . self::esc( $view_url ) . '" style="color:' . self::SOFT . ';text-decoration:underline;">' . self::esc( $str['view'] ) . '</a>' : '';
+		$address = self::esc( (string) ( $brand['address'] ?? '' ) );
+		$company = self::esc( (string) ( $brand['company'] ?? '' ) );
+		$why     = self::esc( (string) ( $brand['why'] ?? '' ) );
+
+		return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;"><tr><td align="center" style="padding:22px 24px 0 24px;font-family:' . $font . ';font-size:12px;line-height:1.7;color:' . self::SOFT . ';">'
+			. ( $why !== '' ? $why . '<br>' : '' )
+			. '<a href="' . $unsub . '" style="color:' . self::SOFT . ';text-decoration:underline;">' . self::esc( $str['unsubscribe'] ) . '</a>' . $view . '<br>'
+			. $company . ( $address !== '' ? ' &middot; ' . $address : '' )
+			. '</td></tr></table>';
+	}
+
+	/**
+	 * Rellena {unsubscribe_url} y {view_in_browser_url}. Sin enlace de "ver en el
+	 * navegador" (la prueba y esa misma página) queda en "#".
+	 */
+	public static function fill_links( $html, $unsubscribe_url, $view_url ) {
+		if ( strpos( $html, '{' ) === false ) return $html;
+		return preg_replace_callback( '/\{(unsubscribe_url|view_in_browser_url)(?:\|[^}]*)?\}/i', function ( $m ) use ( $unsubscribe_url, $view_url ) {
+			if ( strtolower( $m[1] ) === 'unsubscribe_url' ) return self::esc( $unsubscribe_url );
+			return self::esc( $view_url !== '' ? $view_url : '#' );
+		}, (string) $html );
 	}
 
 	// ─── Enlaces ────────────────────────────────────────────────────────────

@@ -17,6 +17,19 @@
 			return pos ? args[parseInt(pos, 10) - 1] : args[i++];
 		});
 	}
+	// Texto → base64 (UTF-8). El código HTML viaja así: ciertos cortafuegos paran un POST con <script> o onclick.
+	function b64(str) {
+		var bytes = new TextEncoder().encode(String(str)), bin = '';
+		for (var i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+		return btoa(bin);
+	}
+	// Los bloques tal como viajan: el HTML de un bloque HTML en base64.
+	function wireBlocks(list) {
+		return JSON.stringify(list.map(function (b) {
+			if (b.type !== 'html') return b;
+			return { type: 'html', html_b64: b64(b.html || '') };
+		}));
+	}
 	function num(n) { return Number(n).toLocaleString(document.documentElement.lang || undefined); }
 	function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
 
@@ -122,6 +135,27 @@
 	});
 	document.addEventListener('keydown', function (e) { if (e.key === 'Escape') $$('.dxo-menu.open').forEach(function (m) { m.classList.remove('open'); }); });
 
+	// ─── Nueva campaña: de bloques o de código ───
+	// Sin JavaScript el enlace crea una de bloques; con él se elige.
+	document.addEventListener('click', function (e) {
+		var a = e.target.closest('[data-new-campaign]');
+		if (!a || e.ctrlKey || e.metaKey || e.shiftKey || !a.getAttribute('data-html-url')) return;
+		e.preventDefault();
+		var wrap = document.createElement('div');
+		wrap.className = 'dxo-choices';
+		[
+			[a.getAttribute('data-blocks-url'), T.new_blocks, T.new_blocks_d, '<rect x="3" y="4" width="18" height="6" rx="2"/><rect x="3" y="13" width="11" height="7" rx="2"/>'],
+			[a.getAttribute('data-html-url'), T.new_html, T.new_html_d, '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>']
+		].forEach(function (c) {
+			var l = document.createElement('a');
+			l.className = 'dxo-choice';
+			l.href = c[0];
+			l.innerHTML = '<div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + c[3] + '</svg></div><b>' + esc(c[1]) + '</b><p class="muted">' + esc(c[2]) + '</p>';
+			wrap.appendChild(l);
+		});
+		modal({ title: T.new_title, body: wrap, buttons: [{ label: T.cancel, kind: 'gray' }] });
+	});
+
 	// ─── Acciones sobre campañas (menús, informe) ───
 	app.addEventListener('click', function (e) {
 		var b = e.target.closest('[data-act]');
@@ -215,6 +249,9 @@
 		var C = JSON.parse(dataEl.textContent);
 		var S = C.strings, L = S.labels;
 		var blocks = C.blocks && C.blocks.length ? C.blocks : [];
+		var isHtml = C.format === 'html';   // la campaña sale del código pegado, no de los bloques
+		var codeEl = $('#dxo-html'), cm = null;
+		var later = [];                      // lo que se hace cuando los bloques ya están en pantalla (el editor de código)
 		var selected = -1;
 		var dirty = false, saving = false, lastSaved = '';
 		var saveTimer, previewTimer;
@@ -225,6 +262,7 @@
 			heading: '<path d="M4 7V5h16v2M9 19h6M12 5v14"/>', text: '<path d="M4 6h16M4 11h16M4 16h10"/>',
 			image: '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-8 8"/>',
 			button: '<rect x="4" y="8" width="16" height="8" rx="4"/>', post: '<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>',
+			html: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/>',
 			divider: '<path d="M4 12h16"/>', spacer: '<path d="M12 4v16M8 8l4-4 4 4M8 16l4 4 4-4"/>',
 			up: '<path d="m6 15 6-6 6 6"/>', down: '<path d="m6 9 6 6 6-6"/>', trash: '<path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13M9 7V4h6v3"/>',
 			grip: '<circle cx="9" cy="6" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="18" r="1"/>'
@@ -241,6 +279,7 @@
 				case 'button': return b.text ? b.text + (b.url ? ' → ' + b.url.replace(/^https?:\/\//, '') : '') : T.empty_block;
 				case 'post': return b.title || T.empty_block;
 				case 'spacer': return (b.height || 24) + ' px';
+				case 'html': return (b.html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90) || T.empty_block;
 				default: return '';
 			}
 		}
@@ -252,6 +291,7 @@
 				case 'button': return { type: type, text: '', url: '', style: 'dark', align: 'left' };
 				case 'post': return { type: type, post_id: 0, title: '', excerpt: '', image: '', url: '', cta: T.read_more };
 				case 'spacer': return { type: type, height: 24 };
+				case 'html': return { type: type, html: '' };
 				default: return { type: type };
 			}
 		}
@@ -341,6 +381,19 @@
 			});
 		}
 
+		// El editor de código de WordPress (CodeMirror) sobre un textarea; sin él, el textarea se queda como está.
+		function codeMirror(ta, onChange) {
+			if (!D.codeEditor || !window.wp || !wp.codeEditor) {
+				ta.addEventListener('input', function () { onChange(ta.value); });
+				return null;
+			}
+			var inst = wp.codeEditor.initialize(ta, D.codeEditor);
+			inst.codemirror.on('change', function (c) { onChange(c.getValue()); });
+			// Si estaba oculto al crearse, no sabe cuánto mide hasta que se enseña.
+			setTimeout(function () { inst.codemirror.refresh(); }, 0);
+			return inst.codemirror;
+		}
+
 		function mediaPicker(b, key, onPick) {
 			var wrap = document.createElement('div');
 			wrap.className = 'dxo-imgpick';
@@ -395,7 +448,7 @@
 			return wrap;
 		}
 
-		function body(b) {
+		function body(b, isSel) {
 			var f = document.createElement('div');
 			f.className = 'dxo-blk-b';
 			switch (b.type) {
@@ -430,6 +483,15 @@
 						f.appendChild(field(L.cta, input(b, 'cta')));
 					}
 					break;
+				case 'html':
+					var ta = document.createElement('textarea');
+					ta.className = 'dxo-input dxo-code'; ta.rows = 9; ta.spellcheck = false; ta.value = b.html || ''; ta.placeholder = L.html_ph;
+					var onCode = function (v) { b.html = v; changed(true); };
+					// Solo el bloque abierto lleva CodeMirror: los cerrados no se ven y no sabría medirse.
+					if (isSel) later.push(function () { codeMirror(ta, onCode); });
+					else ta.addEventListener('input', function () { onCode(ta.value); });
+					f.appendChild(field(L.html_code, ta, L.html_hint));
+					break;
 				case 'spacer':
 					var r = document.createElement('input'); r.type = 'range'; r.min = 8; r.max = 96; r.step = 4; r.value = b.height || 24;
 					r.addEventListener('input', function () { b.height = parseInt(r.value, 10); changed(true); $('.nm span', f.parentNode).textContent = b.height + ' px'; });
@@ -443,7 +505,9 @@
 
 		var dragFrom = -1;
 		function renderList() {
+			if (!list) return;
 			list.innerHTML = '';
+			later = [];
 			blocks.forEach(function (b, i) {
 				var el = document.createElement('div');
 				el.className = 'dxo-blk' + (i === selected ? ' sel' : '');
@@ -453,7 +517,7 @@
 					+ (i > 0 ? '<button type="button" class="dxo-iconbtn" data-t="up" title="' + esc(L.move_up) + '" aria-label="' + esc(L.move_up) + '">' + svg('up') + '</button>' : '')
 					+ (i < blocks.length - 1 ? '<button type="button" class="dxo-iconbtn" data-t="down" title="' + esc(L.move_dn) + '" aria-label="' + esc(L.move_dn) + '">' + svg('down') + '</button>' : '')
 					+ '<button type="button" class="dxo-iconbtn" data-t="del" title="' + esc(L.remove) + '" aria-label="' + esc(L.remove) + '">' + svg('trash') + '</button></span></div>';
-				var bd = body(b);
+				var bd = body(b, i === selected);
 				if (bd) el.appendChild(bd);
 				$('.dxo-blk-h', el).addEventListener('click', function (e) {
 					var t = e.target.closest('[data-t]');
@@ -485,6 +549,7 @@
 				});
 				list.appendChild(el);
 			});
+			later.forEach(function (fn) { fn(); });
 		}
 
 		$$('[data-add]').forEach(function (btn) {
@@ -518,7 +583,9 @@
 
 		// ── Guardar solo y vista previa ──
 		function payload() {
-			var p = { id: C.id, subject: subj.value, preheader: pre.value, blocks: JSON.stringify(blocks) };
+			var p = { id: C.id, subject: subj.value, preheader: pre.value };
+			// Cada formato manda solo lo suyo: el contenido del otro se queda como está en la base.
+			if (isHtml) p.html_b64 = b64(code()); else p.blocks = wireBlocks(blocks);
 			var l = chosenLists();
 			if (l) { p.lists = l.length ? l : ['0']; }
 			return p;
@@ -526,33 +593,41 @@
 		function changed(preview, now) {
 			dirty = true;
 			// El resumen de cada bloque (la línea gris bajo su nombre), al día mientras se escribe.
-			blocks.forEach(function (b, i) { var el = list.children[i]; var sp = el && $('.nm span', el); if (sp) sp.textContent = summary(b); });
+			if (list) blocks.forEach(function (b, i) { var el = list.children[i]; var sp = el && $('.nm span', el); if (sp) sp.textContent = summary(b); });
 			stateEl.textContent = T.unsaved;
 			clearTimeout(saveTimer);
-			saveTimer = setTimeout(save, now ? 50 : 900);
+			saveTimer = setTimeout(function () { save(); }, now ? 50 : 900);
 			if (preview) { clearTimeout(previewTimer); previewTimer = setTimeout(renderPreview, 350); }
 			checklist();
 		}
+		// Un solo guardado a la vez. Si se pide otro mientras uno va, espera a que acabe y guarda lo último
+		// (lo que se escribió entretanto): quien llama a save() y espera su promesa siempre sale con todo guardado.
+		var inflight = null;
 		function save() {
+			if (inflight) return inflight.then(function () { return save(); });
 			var p = payload();
 			var key = JSON.stringify(p);
 			if (key === lastSaved) { dirty = false; stateEl.textContent = T.saved; return Promise.resolve(); }
-			if (saving) { clearTimeout(saveTimer); saveTimer = setTimeout(save, 400); return Promise.resolve(); }
-			saving = true;
 			stateEl.textContent = T.saving;
-			return ajax('save_campaign', p).then(function (r) {
-				saving = false; lastSaved = key;
+			inflight = ajax('save_campaign', p).then(function (r) {
+				lastSaved = key;
 				if (JSON.stringify(payload()) === key) { dirty = false; stateEl.textContent = T.saved; }
 				C.problems = r.problems || [];
 				var pill = $('#dxo-audience');
 				if (pill && r.audience !== undefined) { C.audience = r.audience; pill.textContent = fmt(r.audience === 1 ? S.person : S.people, num(r.audience)); }
 				checklist();
-			}).catch(function (e) { saving = false; stateEl.textContent = e.message; toast(e.message, true); });
+			}).catch(function (e) { stateEl.textContent = e.message; toast(e.message, true); }).then(function () { inflight = null; });
+			return inflight;
 		}
 		var lastScroll = 0;
 		function renderPreview() {
 			try { lastScroll = frame.contentWindow.scrollY || 0; } catch (x) {}
-			ajax('preview', { id: C.id, subject: subj.value, preheader: pre.value, blocks: JSON.stringify(blocks) }).then(function (r) {
+			var pv = { id: C.id, subject: subj.value, preheader: pre.value, format: C.format };
+			if (isHtml) pv.html_b64 = b64(code()); else pv.blocks = wireBlocks(blocks);
+			ajax('preview', pv).then(function (r) {
+				C.warnings = r.warnings || [];
+				if (isHtml) C.ownUnsub = !!r.own_unsub;
+				checklist();
 				frame.onload = function () {
 					// La vista previa mide lo que mide el correo: sin barra de scroll dentro de otra.
 					try {
@@ -583,10 +658,18 @@
 			var warn = function (html) { rows.push('<div class="wa"><svg viewBox="0 0 24 24"><path d="M12 8v5M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg><span>' + html + '</span></div>'); };
 			var no = function (text) { rows.push('<div class="no"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg><span>' + esc(text) + '</span></div>'); };
 			(C.problems || []).forEach(no);
-			ok(S.checks_ok.unsub);
-			S.hasAddress ? ok(S.checks_ok.address) : warn(S.checks_bad.address);
-			var missingAlt = blocks.some(function (b) { return b.type === 'image' && b.url && !b.alt; });
-			missingAlt ? warn(S.checks_bad.alt) : ok(S.checks_ok.alt);
+			if (isHtml) {
+				// Con su propio enlace de baja el pie es cosa suya; sin él, Orbit pone el suyo (con la dirección).
+				if (C.ownUnsub !== undefined) C.ownUnsub ? ok(S.html.own_unsub) : ok(S.html.footer);
+				if (C.ownUnsub === false) S.hasAddress ? ok(S.checks_ok.address) : warn(S.checks_bad.address);
+				(C.warnings || []).forEach(function (t) { warn(esc(t)); });
+			} else {
+				ok(S.checks_ok.unsub);
+				S.hasAddress ? ok(S.checks_ok.address) : warn(S.checks_bad.address);
+				var missingAlt = blocks.some(function (b) { return b.type === 'image' && b.url && !b.alt; });
+				missingAlt ? warn(S.checks_bad.alt) : ok(S.checks_ok.alt);
+				(C.warnings || []).forEach(function (t) { warn(esc(t)); });
+			}
 			C.tested ? ok(S.checks_ok.test) : warn(S.checks_bad.test);
 			box.innerHTML = rows.join('');
 		}
@@ -656,6 +739,56 @@
 			var dur = h < 1 ? fmt(S.minutes, Math.max(1, Math.round(h * 60))) : fmt(S.hours, Math.round(h * 10) / 10);
 			return fmt(S.goes_to, fmt(n === 1 ? S.person : S.people, num(n)), num(rate), dur);
 		}
+
+		// ── Campaña de código: el editor, importar un archivo y cambiar de formato ──
+		function code() { return cm ? cm.getValue() : (codeEl ? codeEl.value : ''); }
+		function setCode(v) {
+			if (cm) cm.setValue(v);                      // dispara su change → guardar y vista previa
+			else if (codeEl) { codeEl.value = v; changed(true); }
+		}
+		if (isHtml && codeEl) {
+			cm = codeMirror(codeEl, function () { changed(true); });
+			lastSaved = JSON.stringify(payload());
+		}
+
+		var importBtn = $('[data-ed=import]'), importFile = $('#dxo-import-file');
+		if (importBtn && importFile) {
+			importBtn.addEventListener('click', function () { importFile.value = ''; importFile.click(); });
+			importFile.addEventListener('change', function () {
+				var f = importFile.files && importFile.files[0];
+				if (!f) return;
+				if (f.size > 1000000) { toast(S.html.import_big, true); return; }
+				var rd = new FileReader();
+				rd.onload = function () {
+					var text = String(rd.result || '').replace(/^\uFEFF/, '');
+					var apply = function () { setCode(text); toast(S.html.imported); };
+					if (code().trim()) confirmBox(S.html.import_ask, S.html.import_btn, 'dark').then(function (ok) { if (ok) apply(); });
+					else apply();
+				};
+				rd.readAsText(f);
+			});
+		}
+
+		// Cambiar de formato no borra nada: el contenido del otro se queda guardado.
+		$$('[data-ed=format]').forEach(function (btn) {
+			btn.addEventListener('click', function () {
+				var to = btn.getAttribute('data-to'), X = S.html;
+				modal({
+					title: to === 'html' ? X.to_html_t : X.to_blocks_t,
+					body: '<p style="margin:0">' + esc(to === 'html' ? X.to_html : X.to_blocks) + '</p>',
+					buttons: [{ label: T.cancel, kind: 'gray' }, { label: X.switch, kind: 'dark', onClick: function () {
+						clearTimeout(saveTimer);
+						// Primero todo lo escrito (save espera a un guardado en curso y guarda lo último); si no quedó guardado, no se cambia.
+						return save().then(function () {
+							if (dirty) throw new Error(T.error);
+							return ajax('save_campaign', { id: C.id, format: to });
+						}).then(function () {
+							dirty = false; location.reload(); return false;
+						});
+					} }]
+				});
+			});
+		});
 
 		renderList();
 		checklist();

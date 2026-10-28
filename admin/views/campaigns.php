@@ -9,7 +9,6 @@ $search  = isset( $_GET['q'] ) ? sanitize_text_field( wp_unslash( $_GET['q'] ) )
 $counts  = DXO_Campaigns::counts();
 $rows    = DXO_Campaigns::query( $filter, $search );
 $welcomes = DXO_Campaigns::welcomes(); // una por idioma con Polylang; una sola sin él
-$new_url = wp_nonce_url( admin_url( 'admin-post.php?action=dxo_new_campaign' ), 'dxo_new' );
 
 $filters = [
 	'all'       => [ __( 'All', 'dox-orbit' ), '' ],
@@ -22,7 +21,7 @@ $filters = [
 <div class="dxo-top">
 	<div><div class="crumb">Orbit</div><h1><?php esc_html_e( 'Campaigns', 'dox-orbit' ); ?></h1></div>
 	<div class="sp"></div>
-	<a class="dxo-btn dxo-btn-dark" href="<?php echo esc_url( $new_url ); ?>"><?php echo DXO_Admin::icon( 'plus' ); // phpcs:ignore ?><?php esc_html_e( 'New campaign', 'dox-orbit' ); ?></a>
+	<a class="dxo-btn dxo-btn-dark" <?php echo DXO_Admin::new_campaign_attrs(); // phpcs:ignore -- ya escapado. ?>><?php echo DXO_Admin::icon( 'plus' ); // phpcs:ignore ?><?php esc_html_e( 'New campaign', 'dox-orbit' ); ?></a>
 </div>
 <div class="dxo-page">
 	<?php include DXO_PATH . 'admin/views/_status.php'; ?>
@@ -69,7 +68,7 @@ $filters = [
 					}
 					?>
 					<tr data-href="<?php echo esc_url( $href ); ?>">
-						<td><div class="t"><?php echo esc_html( $c['subject'] !== '' ? $c['subject'] : __( '(no subject)', 'dox-orbit' ) ); ?></div><div class="s"><?php echo esc_html( DXO_Campaigns::audience_label( $c ) . ' · ' . $when ); ?></div></td>
+						<td><div class="t"><?php echo esc_html( $c['subject'] !== '' ? $c['subject'] : __( '(no subject)', 'dox-orbit' ) ); ?><?php if ( $c['format'] === 'html' ) : ?> <span class="dxo-tag">HTML</span><?php endif; ?></div><div class="s"><?php echo esc_html( DXO_Campaigns::audience_label( $c ) . ' · ' . $when ); ?></div></td>
 						<td><?php echo DXO_Admin::status_pill( $c, $st ); // phpcs:ignore ?></td>
 						<td class="dxo-hide-sm num"><?php echo $st ? esc_html( $c['status'] === 'sending' ? dxo_num( $st['sent'] + $st['failed'] ) . ' / ' . dxo_num( $st['total'] ) : dxo_num( $st['sent'] ) ) : '<span class="muted">' . esc_html( dxo_num( count( DXO_Campaigns::audience_ids( $c ) ) ) ) . '</span>'; ?></td>
 						<td class="dxo-hide-sm"><?php if ( $st && $st['sent'] ) : ?><div class="dxo-rate"><div class="dxo-meter"><i class="acc" style="width:<?php echo round( $st['opened'] * 100 / $st['sent'] ); ?>%"></i></div><b><?php echo esc_html( dxo_pct( $st['opened'], $st['sent'] ) ); ?></b></div><?php else : ?><span class="muted">–</span><?php endif; ?></td>
@@ -106,7 +105,7 @@ $filters = [
 				<div class="ic"><?php echo DXO_Admin::icon( 'send' ); // phpcs:ignore ?></div>
 				<h3><?php esc_html_e( 'No campaigns yet', 'dox-orbit' ); ?></h3>
 				<p><?php esc_html_e( 'Write the first one. It saves by itself as you type, and you can send yourself a test before it goes out.', 'dox-orbit' ); ?></p>
-				<a class="dxo-btn dxo-btn-dark" href="<?php echo esc_url( $new_url ); ?>"><?php echo DXO_Admin::icon( 'plus' ); // phpcs:ignore ?><?php esc_html_e( 'New campaign', 'dox-orbit' ); ?></a>
+				<a class="dxo-btn dxo-btn-dark" <?php echo DXO_Admin::new_campaign_attrs(); // phpcs:ignore -- ya escapado. ?>><?php echo DXO_Admin::icon( 'plus' ); // phpcs:ignore ?><?php esc_html_e( 'New campaign', 'dox-orbit' ); ?></a>
 			</div>
 		<?php endif; ?>
 	</div>

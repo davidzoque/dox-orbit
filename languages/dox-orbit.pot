@@ -92,6 +92,9 @@ msgstr ""
 msgid "<b>All images</b> have alternative text"
 msgstr ""
 
+msgid "<b>Footer added by Orbit.</b> Your code has no link with {unsubscribe_url}, so the unsubscribe link and your address go at the end. The one-click header is sent too."
+msgstr ""
+
 msgid "<b>No postal address.</b> Add it in Settings: CAN-SPAM requires it."
 msgstr ""
 
@@ -108,6 +111,9 @@ msgid "<b>Test sent.</b> Check it on your phone too."
 msgstr ""
 
 msgid "<b>Unsubscribe link</b> and the one-click unsubscribe header that Gmail and Yahoo require"
+msgstr ""
+
+msgid "<b>Your own unsubscribe link</b> ({unsubscribe_url}) is in the code, plus the one-click unsubscribe header that Gmail and Yahoo require"
 msgstr ""
 
 msgid "A CSV from Mailchimp, Excel or wherever you have it."
@@ -144,6 +150,9 @@ msgid "Add"
 msgstr ""
 
 msgid "Add subscriber"
+msgstr ""
+
+msgid "Add titles, text, images and buttons and see the email as you go. The easy way."
 msgstr ""
 
 msgid "Added by hand"
@@ -243,6 +252,9 @@ msgid "Brand color"
 msgstr ""
 
 msgid "Brand in the email"
+msgstr ""
+
+msgid "Bring an email you already have (from a designer, an HTML template or another tool) and send it as it is."
 msgstr ""
 
 msgid "Bring your list"
@@ -368,6 +380,9 @@ msgstr ""
 msgid "Create a mailbox only for this (in cPanel: Email Accounts), for example bounces@yourdomain.com, and put its address and password here. Orbit checks it every hour, marks the addresses that do not exist as Bounced so it stops writing to them, and tidies the mailbox."
 msgstr ""
 
+msgid "Custom fonts only load in some email apps (Apple Mail, iPhone). Anywhere else the fallback font is used, so always add one."
+msgstr ""
+
 msgid "Dark"
 msgstr ""
 
@@ -387,6 +402,9 @@ msgid "Delete this subscriber completely? Their sends stay in the reports, witho
 msgstr ""
 
 msgid "Deleting a list does not delete the people: they stay in the other lists."
+msgstr ""
+
+msgid "Design with blocks"
 msgstr ""
 
 msgid "Desktop"
@@ -467,7 +485,13 @@ msgstr ""
 msgid "Fields: {first_name}, {last_name}, {email}. With a fallback: {first_name|friend}."
 msgstr ""
 
+msgid "Fields: {first_name}, {last_name}, {email}. With a fallback: {first_name|friend}. Also {unsubscribe_url} and {view_in_browser_url} for links. If your code has no {unsubscribe_url}, Orbit adds its footer with the unsubscribe link at the end."
+msgstr ""
+
 msgid "File"
+msgstr ""
+
+msgid "File imported"
 msgstr ""
 
 msgid "First 24 hours"
@@ -536,6 +560,12 @@ msgstr ""
 msgid "Good"
 msgstr ""
 
+msgid "HTML"
+msgstr ""
+
+msgid "HTML code"
+msgstr ""
+
 msgid "Handle bounces automatically"
 msgstr ""
 
@@ -555,6 +585,9 @@ msgid "Image"
 msgstr ""
 
 msgid "Import"
+msgstr ""
+
+msgid "Import .html file"
 msgstr ""
 
 msgid "Import CSV"
@@ -675,6 +708,9 @@ msgid "Look and behavior"
 msgstr ""
 
 msgid "Main form"
+msgstr ""
+
+msgid "Many email apps ignore or break this CSS: %s. Tables work everywhere."
 msgstr ""
 
 msgid "Mark as active"
@@ -860,7 +896,13 @@ msgstr ""
 msgid "Password"
 msgstr ""
 
+msgid "Paste HTML code"
+msgstr ""
+
 msgid "Paste it in any page or post. In Elementor, look for the «Dox Orbit» widget."
+msgstr ""
+
+msgid "Paste the full HTML of your email here"
 msgstr ""
 
 msgid "Pause"
@@ -923,7 +965,13 @@ msgstr ""
 msgid "Remove"
 msgstr ""
 
+msgid "Removed from the email because email apps do not allow it: %s."
+msgstr ""
+
 msgid "Removed from the list"
+msgstr ""
+
+msgid "Replace"
 msgstr ""
 
 msgid "Reply to"
@@ -1112,6 +1160,15 @@ msgstr ""
 msgid "Subscribers"
 msgstr ""
 
+msgid "Switch"
+msgstr ""
+
+msgid "Switch to HTML code?"
+msgstr ""
+
+msgid "Switch to blocks?"
+msgstr ""
+
 msgid "Temporary"
 msgstr ""
 
@@ -1157,6 +1214,9 @@ msgstr ""
 msgid "That email does not look right. Check it and try again."
 msgstr ""
 
+msgid "That file is too large. Over 1 MB cannot be a good email."
+msgstr ""
+
 msgid "That subscriber no longer exists."
 msgstr ""
 
@@ -1169,6 +1229,12 @@ msgstr ""
 msgid "The CAN-SPAM law in the US requires a real postal address in every marketing email: a street address, a PO box or a private mailbox."
 msgstr ""
 
+msgid "The HTML code is too large. Over 1 MB cannot be a good email."
+msgstr ""
+
+msgid "The HTML of the block. Tables and inline styles work in every email app."
+msgstr ""
+
 msgid "The WordPress email"
 msgstr ""
 
@@ -1176,6 +1242,12 @@ msgid "The bounce mailbox email is not valid."
 msgstr ""
 
 msgid "The campaign and its report will be deleted. This cannot be undone."
+msgstr ""
+
+msgid "The code has too many CSS rules: %s were left out of the inlining and stay in the style tag."
+msgstr ""
+
+msgid "The code in the editor will be replaced by the file. Continue?"
 msgstr ""
 
 msgid "The confirmation email"
@@ -1191,6 +1263,18 @@ msgid "The email could not be sent. Check the sending settings."
 msgstr ""
 
 msgid "The email is empty: add a title, a text or an image."
+msgstr ""
+
+msgid "The email is empty: paste the HTML code."
+msgstr ""
+
+msgid "The email weighs about %s KB. Gmail cuts off emails over 102 KB and hides the rest behind «View entire message»."
+msgstr ""
+
+msgid "The email will be sent from the HTML code. Your blocks are kept, and you can go back to them at any time."
+msgstr ""
+
+msgid "The email will be sent from the blocks. Your HTML code is kept, and you can go back to it at any time."
 msgstr ""
 
 msgid "The links go through your website for an instant before reaching their destination."
@@ -1286,6 +1370,12 @@ msgstr ""
 msgid "This person unsubscribed. Only they can subscribe again, from a form."
 msgstr ""
 
+msgid "This server cannot clean HTML code (the PHP DOM extension is missing), so HTML campaigns are turned off."
+msgstr ""
+
+msgid "This server has no PHP DOM extension, so Orbit cannot clean HTML code safely. The HTML block and HTML campaigns are turned off; blocks work as always. Ask your host to enable the DOM (php-xml) extension."
+msgstr ""
+
 msgid "Three steps and you can send your first newsletter. Everything stays in your WordPress."
 msgstr ""
 
@@ -1323,6 +1413,12 @@ msgid "Unsubscribes"
 msgstr ""
 
 msgid "Unsubscribes per send"
+msgstr ""
+
+msgid "Use HTML code instead"
+msgstr ""
+
+msgid "Use blocks instead"
 msgstr ""
 
 msgid "Use plus addressing (VERP)"
@@ -1380,6 +1476,9 @@ msgid "When a campaign goes out, its opens, clicks and unsubscribes appear here.
 msgstr ""
 
 msgid "When an address does not exist or the mailbox is full, the other server sends the email back. Without this, those returns get lost and Orbit keeps writing to dead addresses, which hurts your reputation with Gmail and Outlook."
+msgstr ""
+
+msgid "When it goes out, Orbit removes scripts, forms and anything an email app does not allow, moves the CSS of the <style> tags into each element (Gmail and Outlook need it there) and tracks the clicks. The preview on the right is exactly that."
 msgstr ""
 
 msgid "When scrolling down"
@@ -1582,6 +1681,26 @@ msgstr[1] ""
 
 msgid "%s failed"
 msgid_plural "%s failed"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%s image has a relative address (like /images/logo.png). In an email it needs the full address, starting with https://."
+msgid_plural "%s images have a relative address (like /images/logo.png). In an email they need the full address, starting with https://."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%s image has no alt attribute. It is what is read when images are blocked."
+msgid_plural "%s images have no alt attribute. It is what is read when images are blocked."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%s image is WebP or AVIF. Outlook for Windows does not show it; use JPG or PNG."
+msgid_plural "%s images are WebP or AVIF. Outlook for Windows does not show them; use JPG or PNG."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "%s image uses http:// and some email apps block it. Use https://."
+msgid_plural "%s images use http:// and some email apps block them. Use https://."
 msgstr[0] ""
 msgstr[1] ""
 

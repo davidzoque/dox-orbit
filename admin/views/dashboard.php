@@ -33,7 +33,7 @@ $src_name = function ( $key ) use ( $forms ) {
 	<div><div class="crumb">Orbit</div><h1><?php esc_html_e( 'Overview', 'dox-orbit' ); ?></h1></div>
 	<div class="sp"></div>
 	<a class="dxo-btn dxo-btn-gray dxo-hide-sm" href="<?php echo esc_url( DXO_Admin::url( 'subscribers', [ 'import' => 1 ] ) ); ?>"><?php echo DXO_Admin::icon( 'download' ); // phpcs:ignore ?><?php esc_html_e( 'Import CSV', 'dox-orbit' ); ?></a>
-	<a class="dxo-btn dxo-btn-dark" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dxo_new_campaign' ), 'dxo_new' ) ); ?>"><?php echo DXO_Admin::icon( 'plus' ); // phpcs:ignore ?><?php esc_html_e( 'New campaign', 'dox-orbit' ); ?></a>
+	<a class="dxo-btn dxo-btn-dark" <?php echo DXO_Admin::new_campaign_attrs(); // phpcs:ignore -- ya escapado. ?>><?php echo DXO_Admin::icon( 'plus' ); // phpcs:ignore ?><?php esc_html_e( 'New campaign', 'dox-orbit' ); ?></a>
 </div>
 <div class="dxo-page">
 
@@ -51,7 +51,7 @@ $src_name = function ( $key ) use ( $forms ) {
 		<div class="dxo-steps3" data-anim>
 			<a href="<?php echo esc_url( DXO_Admin::url( 'forms' ) ); ?>"><span class="n">1</span><b><?php esc_html_e( 'Put a form on the website', 'dox-orbit' ); ?></b><?php esc_html_e( 'In a page, as a pop-up or as a bottom bar.', 'dox-orbit' ); ?></a>
 			<a href="<?php echo esc_url( DXO_Admin::url( 'subscribers', [ 'import' => 1 ] ) ); ?>"><span class="n">2</span><b><?php esc_html_e( 'Bring your list', 'dox-orbit' ); ?></b><?php esc_html_e( 'A CSV from Mailchimp, Excel or wherever you have it.', 'dox-orbit' ); ?></a>
-			<a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dxo_new_campaign' ), 'dxo_new' ) ); ?>"><span class="n">3</span><b><?php esc_html_e( 'Write the first campaign', 'dox-orbit' ); ?></b><?php esc_html_e( 'Send yourself a test before it goes out.', 'dox-orbit' ); ?></a>
+			<a <?php echo DXO_Admin::new_campaign_attrs(); // phpcs:ignore -- ya escapado. ?>><span class="n">3</span><b><?php esc_html_e( 'Write the first campaign', 'dox-orbit' ); ?></b><?php esc_html_e( 'Send yourself a test before it goes out.', 'dox-orbit' ); ?></a>
 		</div>
 	<?php else : ?>
 
@@ -113,7 +113,7 @@ $src_name = function ( $key ) use ( $forms ) {
 						<?php endforeach; ?>
 					</tbody></table></div>
 				<?php else : ?>
-					<div class="dxo-card-b muted"><?php esc_html_e( 'No campaign has been sent yet.', 'dox-orbit' ); ?> <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dxo_new_campaign' ), 'dxo_new' ) ); ?>"><?php esc_html_e( 'Write the first one', 'dox-orbit' ); ?></a></div>
+					<div class="dxo-card-b muted"><?php esc_html_e( 'No campaign has been sent yet.', 'dox-orbit' ); ?> <a <?php echo DXO_Admin::new_campaign_attrs(); // phpcs:ignore -- ya escapado. ?>><?php esc_html_e( 'Write the first one', 'dox-orbit' ); ?></a></div>
 				<?php endif; ?>
 			</div>
 		</div>
@@ -131,7 +131,7 @@ $src_name = function ( $key ) use ( $forms ) {
 						</div>
 					<?php else : ?>
 						<p class="muted" style="margin:0 0 10px"><?php esc_html_e( 'Nothing scheduled.', 'dox-orbit' ); ?></p>
-						<a class="dxo-btn dxo-btn-link" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=dxo_new_campaign' ), 'dxo_new' ) ); ?>"><?php esc_html_e( 'Prepare the next one', 'dox-orbit' ); ?> <?php echo DXO_Admin::icon( 'arrow' ); // phpcs:ignore ?></a>
+						<a class="dxo-btn dxo-btn-link" <?php echo DXO_Admin::new_campaign_attrs(); // phpcs:ignore -- ya escapado. ?>><?php esc_html_e( 'Prepare the next one', 'dox-orbit' ); ?> <?php echo DXO_Admin::icon( 'arrow' ); // phpcs:ignore ?></a>
 					<?php endif; ?>
 				</div>
 			</div>

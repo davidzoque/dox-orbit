@@ -269,6 +269,18 @@ select.dxo-input { padding-right: 30px !important; }
 .dxo-choice .sk { height: 54px; border-radius: 7px; background: var(--line2); margin-bottom: 9px; position: relative; overflow: hidden; }
 .dxo-choice .sk i { position: absolute; background: #d4d4d8; border-radius: 3px; }
 .dxo-choice span.sub { font-size: 11.5px; color: var(--t3); }
+a.dxo-choice { text-decoration: none; color: inherit; }
+a.dxo-choice:hover, a.dxo-choice:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); outline: none; }
+a.dxo-choice p { margin-bottom: 0; }
+
+/* Código HTML: el campo de la campaña y el del bloque. CodeMirror (el de WordPress) lo cambia por el suyo. */
+.dxo-code, textarea.dxo-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace !important; font-size: 12.5px !important; line-height: 1.55; tab-size: 2; white-space: pre; overflow: auto; }
+.dxo-code-wrap textarea.dxo-code { min-height: 420px; }
+.dxo-code-wrap .CodeMirror, .dxo-blk-b .CodeMirror { border: 1px solid var(--line); border-radius: 10px; font-size: 12.5px; line-height: 1.55; }
+.dxo-code-wrap .CodeMirror { height: 480px; }
+.dxo-blk-b .CodeMirror { height: 240px; }
+.dxo-code-wrap .CodeMirror-focused, .dxo-blk-b .CodeMirror-focused { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.dxo-tag { display: inline-block; vertical-align: 1px; margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: var(--line2); color: var(--t2); font-size: 10.5px; font-weight: 600; letter-spacing: .02em; }
 
 /* Pestañas */
 .dxo-tabs { display: inline-flex; background: var(--line2); border-radius: 999px; padding: 4px; gap: 2px; margin-bottom: 20px; flex-wrap: wrap; }

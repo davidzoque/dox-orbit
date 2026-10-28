@@ -169,7 +169,7 @@ class DXO_Sender {
 		$track  = $links !== null;
 
 		// Una campaña con idioma (la bienvenida de Polylang) saca sus textos fijos en ese idioma.
-		$entered = DXO_Campaigns::enter_lang( DXO_Campaigns::lang_of( $c ) );
+		$entered = DXO_Campaigns::enter_lang( DXO_Campaigns::render_lang( $c ) );
 		try {
 			$brand = DXO_Settings::brand();
 			// "Por qué lo recibes" es un texto libre en un solo idioma: fuera del principal va el del plugin, traducido.
@@ -180,7 +180,9 @@ class DXO_Sender {
 		}
 
 		$render = DXO_Renderer::render_email( [
+			'format'          => $c['format'] ?? 'blocks',
 			'blocks'          => $c['blocks'],
+			'html'            => $c['html'] ?? '',
 			'brand'           => $brand,
 			'subject'         => $c['subject'],
 			'preheader'       => $c['preheader'],

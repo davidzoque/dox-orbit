@@ -1,10 +1,13 @@
 <?php
 /**
- * Pruebas del renderizador y del lector de rebotes, sin WordPress: php tests/run.php
+ * Pruebas del renderizador, del HTML propio (limpieza, CSS en línea, correos de código) y del lector de rebotes, sin WordPress: php tests/run.php
  * No viajan en el zip (el workflow excluye tests/).
  */
 define( 'ABSPATH', __DIR__ );
 require __DIR__ . '/../includes/class-dxo-renderer.php';
+require __DIR__ . '/../includes/class-dxo-sanitizer.php';
+require __DIR__ . '/../includes/class-dxo-inliner.php';
+require __DIR__ . '/../includes/class-dxo-html-email.php';
 require __DIR__ . '/../includes/class-dxo-bounce-parser.php';
 require __DIR__ . '/../includes/class-dxo-mailer.php';
 require __DIR__ . '/../includes/class-dxo-imap.php';
@@ -560,6 +563,367 @@ if ( $port ) {
 }
 @unlink( $logf );
 // Una carpeta con un aviso no verificable se queda, con su mensaje.
+
+// ═══ HTML propio: limpieza, CSS en línea y correos de código ═══════════════
+
+echo "Limpieza del HTML\n";
+$dirty = '<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=https://mal.com"><title>Hola</title>'
+	. '<link rel="stylesheet" href="https://evil.com/x.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter"><base href="https://evil.com/">'
+	. '<script>alert(1)</script></head>'
+	. '<body onload="x()"><!-- nota --><!--[if mso]><table><tr><td><![endif]-->'
+	. '<table width="600" cellpadding="0" cellspacing="0"><tr><td onclick="y()" style="color:red;width:expression(alert(1))" bgcolor="#fff">Hola ñ <a href="javascript:alert(1)">uno</a> <a href="JaVa&#09;ScRipt:alert(2)">dos</a> <a href="https://a.com/?x=1&y=2">tres</a> <a href="vbscript:x">cuatro</a>'
+	. '<img src="data:image/png;base64,AAAA" alt="d"><img src="https://a.com/i.png" alt="ok"></td></tr></table>'
+	. '<!--[if mso]></td></tr></table><![endif]-->'
+	. '<iframe src="https://evil.com"></iframe><object data="x"></object><embed src="x"><form action="x"><input name="a"><textarea>t</textarea><select><option>1</option></select><button>Ir</button><p>queda</p></form>'
+	. '<svg><script>alert(2)</script><circle r="1"/></svg><div style="background:url(javascript:alert(3));color:blue">z</div></body></html>';
+$rep = null;
+$clean = DXO_Sanitizer::document( $dirty, $rep );
+check( 'quita script y su contenido', stripos( $clean, '<script' ) === false && strpos( $clean, 'alert(1)' ) === false );
+check( 'quita on*', stripos( $clean, 'onclick' ) === false && stripos( $clean, 'onload' ) === false );
+check( 'quita javascript: (también con tab y mayúsculas) y vbscript:', stripos( $clean, 'javascript' ) === false && stripos( $clean, 'vbscript' ) === false );
+check( 'deja el enlace bueno con su &', strpos( $clean, 'href="https://a.com/?x=1&amp;y=2"' ) !== false );
+check( 'quita iframe, object, embed', ! preg_match( '/<(iframe|object|embed)/i', $clean ) );
+check( 'quita form, input, textarea, select, button', ! preg_match( '/<(form|input|textarea|select|button|option)/i', $clean ) );
+check( 'pero deja el texto que había dentro del form', strpos( $clean, '<p>queda</p>' ) !== false );
+check( 'quita base y meta refresh', stripos( $clean, '<base' ) === false && stripos( $clean, 'refresh' ) === false );
+check( 'quita svg entero (y su script)', stripos( $clean, '<svg' ) === false && strpos( $clean, 'alert(2)' ) === false );
+check( 'quita data: en imágenes', strpos( $clean, 'data:image' ) === false && strpos( $clean, 'alt="d"' ) === false );
+check( 'deja la imagen https', strpos( $clean, 'src="https://a.com/i.png"' ) !== false );
+check( 'quita expression() y url(javascript:) del style', stripos( $clean, 'expression' ) === false && stripos( $clean, 'url(javascript' ) === false );
+check( 'deja el resto del style', strpos( $clean, 'color:red' ) !== false && strpos( $clean, 'color:blue' ) !== false );
+check( 'link: solo Google Fonts', strpos( $clean, 'fonts.googleapis.com' ) !== false && strpos( $clean, 'evil.com/x.css' ) === false );
+check( 'comentarios condicionales de Outlook se quedan', strpos( $clean, '<!--[if mso]><table><tr><td><![endif]-->' ) !== false && strpos( $clean, '<!--[if mso]></td></tr></table><![endif]-->' ) !== false );
+check( 'otros comentarios fuera', strpos( $clean, 'nota' ) === false );
+check( 'las tablas y sus atributos se quedan', strpos( $clean, '<table width="600" cellpadding="0" cellspacing="0">' ) !== false && strpos( $clean, 'bgcolor="#fff"' ) !== false );
+check( 'respeta el UTF-8', strpos( $clean, 'ñ' ) !== false );
+check( 'informa de lo quitado', isset( $rep['tags']['script'], $rep['tags']['iframe'] ) && $rep['attrs'] > 0 );
+$bad_cond = DXO_Sanitizer::document( '<html><body><!--[if mso]><script>alert(1)</script><![endif]--><p>x</p></body></html>' );
+check( 'un comentario condicional con script se quita', stripos( $bad_cond, 'script' ) === false && strpos( $bad_cond, '<p>x</p>' ) !== false );
+$tags = DXO_Sanitizer::document( '<html><body><a href="{unsubscribe_url}">baja</a> <a href="https://a.com/?n={first_name|amigo}&e={email}">ok</a> <a href="{first_name}">no</a></body></html>' );
+check( 'los {campos} sobreviven en un href', strpos( $tags, 'href="{unsubscribe_url}"' ) !== false && strpos( $tags, 'n={first_name|amigo}&amp;e={email}' ) !== false );
+check( 'un {campo} de la persona no puede ser todo el href', strpos( $tags, 'href="{first_name}"' ) === false );
+$frag = DXO_Sanitizer::fragment( '<html><head><title>x</title></head><body><p onclick="a()">Hola</p><script>x</script><style>p{color:red}</style></body></html>' );
+check( 'trozo: sin html/head/body/title/script', ! preg_match( '/<(html|head|body|title|script)/i', $frag ) && strpos( $frag, '<p>Hola</p>' ) !== false && strpos( $frag, '<style>' ) !== false );
+
+echo "CSS en línea\n";
+$in = function ( $html ) { return DXO_Inliner::inline( '<html><head>' . $html ); };
+$h = $in( '<style>.a{color:red}</style></head><body><p class="a">x</p><p>y</p></body></html>' );
+check( 'clase', strpos( $h, '<p class="a" style="color:red">x</p>' ) !== false && strpos( $h, '<p>y</p>' ) !== false );
+$h = $in( '<style>#u{color:red}</style></head><body><p id="u">x</p></body></html>' );
+check( 'id', strpos( $h, 'id="u" style="color:red"' ) !== false );
+$h = $in( '<style>p{margin:0}</style></head><body><p>x</p><div>y</div></body></html>' );
+check( 'etiqueta', strpos( $h, '<p style="margin:0">x</p>' ) !== false && strpos( $h, '<div>y</div>' ) !== false );
+$h = $in( '<style>td.x{color:red}</style></head><body><table><tr><td class="x">a</td><td class="y">b</td><td>c</td></tr></table></body></html>' );
+check( 'compuesto td.x', strpos( $h, '<td class="x" style="color:red">a</td>' ) !== false && strpos( $h, '<td class="y">b</td>' ) !== false );
+$h = $in( '<style>table td{padding:4px}.box p{color:red}</style></head><body><table><tr><td>a</td></tr></table><p>fuera</p><div class="box"><span><p>dentro</p></span></div></body></html>' );
+check( 'descendiente (con espacio)', strpos( $h, '<td style="padding:4px">a</td>' ) !== false && strpos( $h, '<p>fuera</p>' ) !== false && strpos( $h, '<p style="color:red">dentro</p>' ) !== false );
+$h = $in( '<style>div>p{color:red}</style></head><body><div><p>hijo</p><span><p>nieto</p></span></div></body></html>' );
+check( 'hijo directo (>)', strpos( $h, '<p style="color:red">hijo</p>' ) !== false && strpos( $h, '<p>nieto</p>' ) !== false );
+$h = $in( '<style>h1,h2,.k{color:red}</style></head><body><h1>a</h1><h2>b</h2><h3>c</h3><i class="k">d</i></body></html>' );
+check( 'lista con comas', strpos( $h, '<h1 style="color:red">a</h1>' ) !== false && strpos( $h, '<h2 style="color:red">b</h2>' ) !== false && strpos( $h, '<h3>c</h3>' ) !== false && strpos( $h, '<i class="k" style="color:red">d</i>' ) !== false );
+$h = $in( '<style>p{color:blue}.a{color:green}#i{color:red}</style></head><body><p class="a" id="i">x</p><p class="a">y</p><p>z</p></body></html>' );
+check( 'especificidad: id > clase > etiqueta', strpos( $h, 'id="i" style="color:red"' ) !== false && strpos( $h, '<p class="a" style="color:green">y</p>' ) !== false && strpos( $h, '<p style="color:blue">z</p>' ) !== false );
+$h = $in( '<style>.a{color:green}.a{color:red}</style></head><body><p class="a">x</p></body></html>' );
+check( 'a igual especificidad gana la última', strpos( $h, 'style="color:red"' ) !== false && strpos( $h, 'green' ) === false );
+$h = $in( '<style>p{color:red}</style></head><body><p style="color:blue;margin:1px">x</p></body></html>' );
+check( 'el estilo en línea gana a la hoja', strpos( $h, 'color:blue' ) !== false && strpos( $h, 'red' ) === false && strpos( $h, 'margin:1px' ) !== false );
+$h = $in( '<style>p{color:red !important}</style></head><body><p style="color:blue">x</p></body></html>' );
+check( '!important de la hoja gana al estilo en línea', strpos( $h, 'color:red !important' ) !== false && strpos( $h, 'blue' ) === false );
+$h = $in( '<style>p{color:red !important}</style></head><body><p style="color:blue !important">x</p></body></html>' );
+check( '!important en línea gana al de la hoja', strpos( $h, 'color:blue !important' ) !== false && strpos( $h, 'red' ) === false );
+$h = $in( '<style>.a{color:red}@media (max-width:600px){.a{color:blue !important}}a:hover{color:green}</style></head><body><p class="a">x</p></body></html>' );
+check( '@media y :hover se quedan en un <style> del head', preg_match( '#<head>.*<style>.*@media \(max-width:600px\)\{\.a\{color:blue !important\}\}.*a:hover\{color:green\}.*</style>.*</head>#s', $h ) === 1 );
+check( '...y lo que un @media pisa NO se pasa a línea (el estilo en línea le ganaría): se queda en el <style>', strpos( $h, '<p class="a" style="color:red">' ) === false && strpos( $h, '.a{color:red}' ) !== false );
+$h = $in( '<style>.a{color:red;font-size:12px}@media (max-width:600px){.a{color:blue !important}}</style></head><body><p class="a">x</p></body></html>' );
+check( '...pero las demás propiedades de esa regla sí', strpos( $h, '<p class="a" style="font-size:12px">' ) !== false && strpos( $h, '.a{color:red}' ) !== false );
+$h = $in( '<style>.a{color:red}p{margin:0}</style></head><body><p class="a">x</p></body></html>' );
+check( 'si todo se pasó a línea el <style> desaparece', stripos( $h, '<style' ) === false );
+$h = $in( '<style>a.x, a:hover{color:red}</style></head><body><a class="x" href="#">x</a></body></html>' );
+check( 'lista a medias: lo entendido a línea, lo demás se queda', strpos( $h, '<a class="x" href="#" style="color:red">' ) !== false && strpos( $h, 'a:hover{color:red}' ) !== false );
+$h = $in( '<style>p[x=y]{color:red}:::raro{color:red}p+p{color:red}.ok{color:blue}</style></head><body><p class="ok">x</p></body></html>' );
+check( 'un selector que no entiende se salta sin romper nada', strpos( $h, '<p class="ok" style="color:blue">x</p>' ) !== false );
+$h = $in( '<style>body{margin:0}</style></head><body><p>x</p></body></html>' );
+check( 'body recibe su estilo', strpos( $h, '<body style="margin:0">' ) !== false );
+$h = $in( '<style>.a { color : red ; padding:0 } /* c */ .b{margin:2px;}</style></head><body><p class="a b">x</p></body></html>' );
+check( 'espacios y comentarios en el CSS', strpos( $h, 'color:red' ) !== false && strpos( $h, 'padding:0' ) !== false && strpos( $h, 'margin:2px' ) !== false );
+$h = DXO_Inliner::inline( '<table><tr><td class="x">a</td></tr></table><style>.x{color:red}</style>' );
+check( 'un <style> suelto en el cuerpo (sin head)', strpos( $h, '<td class="x" style="color:red">' ) !== false );
+
+echo "Correos de código\n";
+$brand = [ 'company' => 'Dox & Co', 'address' => 'Riviera Beach, FL', 'accent' => '#ff8d27', 'why' => 'Te suscribiste.' ];
+$mk = function ( $html, array $o = [] ) use ( $brand ) {
+	return DXO_Renderer::render_email( array_merge( [
+		'format'          => 'html',
+		'html'            => $html,
+		'brand'           => $brand,
+		'subject'         => 'Hola {first_name}',
+		'preheader'       => 'Mira esto {first_name|amigo}',
+		'fields'          => [ 'first_name' => 'Ana', 'email' => 'ana@a.com' ],
+		'unsubscribe_url' => 'https://web.com/?dxo=unsubscribe&t=1',
+		'view_url'        => 'https://web.com/?dxo=view&t=1',
+		'pixel_url'       => 'https://web.com/?dxo=open&t=1',
+		'link'            => function ( $u ) { return 'https://web.com/?dxo=click&l=' . substr( md5( $u ), 0, 6 ); },
+	], $o ) );
+};
+$doc = '<!doctype html><html><head><style>.t{color:#111}</style></head><body style="margin:0"><table><tr><td class="t">Hola {first_name}, <a href="https://a.com/x">mira</a> <a href="mailto:a@a.com">escribe</a> <a href="tel:+1555">llama</a> <a href="#arriba">arriba</a></td></tr></table></body></html>';
+$r = $mk( $doc );
+check( 'preheader justo después de <body>', preg_match( '#<body style="margin:0"><div style="display:none[^>]*>Mira esto Ana#', $r['html'] ) === 1 );
+check( 'pixel justo antes de </body>', preg_match( '#<img src="https://web\.com/\?dxo=open&amp;t=1"[^>]*></body>#', $r['html'] ) === 1 );
+check( 'campos rellenos', strpos( $r['html'], 'Hola Ana, ' ) !== false );
+check( 'sin {unsubscribe_url}: el pie de Orbit al final con la baja', strpos( $r['html'], 'href="https://web.com/?dxo=unsubscribe&amp;t=1"' ) !== false && strpos( $r['html'], 'Riviera Beach, FL' ) !== false && strpos( $r['html'], 'Te suscribiste.' ) !== false );
+check( '...y el pie va antes del píxel', strpos( $r['html'], 'Riviera Beach' ) < strpos( $r['html'], 'dxo=open' ) );
+check( 'solo un </body>', substr_count( $r['html'], '</body>' ) === 1 );
+check( 'enlace http con seguimiento', strpos( $r['html'], 'href="https://web.com/?dxo=click&amp;l=' ) !== false && substr_count( $r['html'], 'dxo=click' ) === 1 );
+check( 'mailto, tel y # sin seguimiento', strpos( $r['html'], 'href="mailto:a@a.com"' ) !== false && strpos( $r['html'], 'href="tel:+1555"' ) !== false && strpos( $r['html'], 'href="#arriba"' ) !== false );
+check( 'la baja y "ver en el navegador" no se siguen', substr_count( $r['html'], 'dxo=unsubscribe' ) === 1 && strpos( $r['html'], 'href="https://web.com/?dxo=view&amp;t=1"' ) !== false );
+check( 'el CSS de <style> pasó a línea', strpos( $r['html'], 'class="t" style="color:#111"' ) !== false );
+check( 'texto: enlace como "texto (url)", sin preheader ni etiquetas', strpos( $r['text'], 'mira (https://web.com/?dxo=click' ) !== false && strpos( $r['text'], 'Mira esto' ) === false && strpos( $r['text'], '<' ) === false && strpos( $r['text'], 'Hola Ana,' ) === 0 );
+
+$own = '<html><body><p>Hola</p><p><a href="{unsubscribe_url}">Darme de baja</a> &middot; <a href="{view_in_browser_url}">Ver en el navegador</a></p></body></html>';
+$r = $mk( $own );
+check( 'con {unsubscribe_url}: se rellena y NO se añade el pie', strpos( $r['html'], 'href="https://web.com/?dxo=unsubscribe&amp;t=1">Darme de baja' ) !== false && substr_count( $r['html'], 'dxo=unsubscribe' ) === 1 && strpos( $r['html'], 'Riviera Beach' ) === false );
+check( '{view_in_browser_url} se rellena', strpos( $r['html'], 'href="https://web.com/?dxo=view&amp;t=1">Ver en el navegador' ) !== false );
+check( 'el pixel sigue estando', strpos( $r['html'], 'dxo=open' ) !== false );
+$r = $mk( $own, [ 'view_url' => '', 'pixel_url' => null, 'link' => null ] );
+check( 'prueba (sin ver-en-navegador): queda #', strpos( $r['html'], 'href="#">Ver en el navegador' ) !== false && strpos( $r['html'], 'dxo=open' ) === false );
+$only_comment = $mk( '<html><body><p>Hola</p><!--[if mso]><a href="{unsubscribe_url}">baja</a><![endif]--></body></html>' );
+check( '{unsubscribe_url} solo dentro de un comentario no cuenta: pie añadido', strpos( $only_comment['html'], 'Riviera Beach' ) !== false );
+$only_text = $mk( '<html><body><p>Tu baja: {unsubscribe_url}</p></body></html>' );
+check( '{unsubscribe_url} solo como texto (sin enlace) no cuenta: pie añadido', strpos( $only_text['html'], 'Riviera Beach' ) !== false && strpos( $only_text['html'], 'Tu baja: https://web.com/?dxo=unsubscribe&amp;t=1' ) !== false );
+
+$r = $mk( '<table><tr><td>Solo un trozo <b>sin</b> html</td></tr></table>' );
+check( 'un trozo se envuelve en un documento mínimo', preg_match( '#^<!doctype html>\s*<html>.*<head>.*<meta charset="utf-8">.*<meta name="viewport".*</head>\s*<body[^>]*>.*Solo un trozo.*</body>\s*</html>$#is', $r['html'] ) === 1 );
+check( '...y con el pie, el preheader y el píxel como cualquier otro', strpos( $r['html'], 'Mira esto Ana' ) !== false && strpos( $r['html'], 'Riviera Beach' ) !== false && strpos( $r['html'], 'dxo=open' ) !== false );
+$r = $mk( '<p>Hola {first_name|amigo}</p>', [ 'fields' => [] ] );
+check( 'respaldo del campo', strpos( $r['html'], 'Hola amigo' ) !== false );
+$r = $mk( '<p>Hola {first_name}</p><script>alert(1)</script><img src="x" onerror="y()">', [ 'fields' => [ 'first_name' => '<b>Ana</b>' ] ] );
+check( 'el valor de un campo se escapa y el script no sale', strpos( $r['html'], '&lt;b&gt;Ana&lt;/b&gt;' ) !== false && stripos( $r['html'], '<script' ) === false && stripos( $r['html'], 'onerror' ) === false );
+$r = $mk( '<p>Hola</p>', [ 'preheader' => '' ] );
+check( 'sin preheader no se pone el div', strpos( $r['html'], 'display:none' ) === false );
+
+echo "Texto plano del HTML\n";
+$t = DXO_Html_Email::to_text( '<html><head><title>x</title><style>p{}</style></head><body><h1>Gran <a href="https://a.com/h">título</a> &amp; más</h1><p>Un <a href="https://a.com/x">enlace</a> y <a href="https://b.com">https://b.com</a></p><ul><li>uno</li><li>dos</li></ul><p><a href="#a">ancla</a><br>fin</p></body></html>' );
+check( 'títulos en mayúsculas', strpos( $t, 'GRAN TÍTULO (https://a.com/h) & MÁS' ) !== false );
+check( 'enlaces "texto (url)" y url sola si coincide', strpos( $t, 'Un enlace (https://a.com/x) y https://b.com' ) !== false );
+check( 'listas con guion', strpos( $t, "- uno\n- dos" ) !== false );
+check( 'ancla sin url, salto de línea', strpos( $t, "ancla\nfin" ) !== false && strpos( $t, 'ancla (#a)' ) === false );
+check( 'sin etiquetas ni título ni estilos', strpos( $t, '<' ) === false && strpos( $t, 'p{}' ) === false && strpos( $t, 'x' ) !== 0 );
+
+echo "Bloque HTML\n";
+$nb = DXO_Renderer::normalize_blocks( [ [ 'type' => 'html', 'html' => '<p onclick="x()">Hola</p><script>alert(1)</script>' ] ] );
+check( 'el bloque se limpia al guardar', $nb[0]['type'] === 'html' && $nb[0]['html'] === '<p>Hola</p>' );
+$r = DXO_Renderer::render_email( [
+	'blocks'          => DXO_Renderer::normalize_blocks( [
+		[ 'type' => 'heading', 'text' => 'Título', 'size' => 'large' ],
+		[ 'type' => 'html', 'html' => '<style>.b{color:red;margin:0}@media (max-width:600px){.b{color:blue!important}}</style><p class="b">Hola {first_name} <a href="https://a.com/z">z</a> <a href="{unsubscribe_url}">baja</a></p>' ],
+	] ),
+	'brand'           => $brand,
+	'subject'         => 's',
+	'fields'          => [ 'first_name' => 'Ana' ],
+	'unsubscribe_url' => 'https://web.com/?dxo=unsubscribe&t=1',
+	'link'            => function ( $u ) { return 'https://web.com/?dxo=click&l=1'; },
+] );
+check( 'dentro del diseño de Orbit (logo/pie/baja)', strpos( $r['html'], 'Dox &amp; Co' ) !== false && strpos( $r['html'], 'Riviera Beach' ) !== false );
+check( 'campos y CSS en línea', strpos( $r['html'], '<p class="b" style="margin:0">Hola Ana' ) !== false );
+check( 'el @media del bloque sube al <head>', preg_match( '#<head>.*@media \(max-width:600px\)\{\.b\{color:blue!important\}\}.*</head>#s', $r['html'] ) === 1 );
+check( 'enlaces con seguimiento; {unsubscribe_url} del bloque relleno y sin seguir', strpos( $r['html'], 'dxo=click&amp;l=1' ) !== false && substr_count( $r['html'], 'href="https://web.com/?dxo=unsubscribe&amp;t=1"' ) === 2 );
+check( 'campos desconocidos: {unsubscribe_url} no lo es', DXO_Renderer::unknown_tags( '{unsubscribe_url} {view_in_browser_url} {nope}' ) === [ '{nope}' ] );
+
+echo "Avisos del editor\n";
+$w = DXO_Html_Email::warnings( '<html><body style="x"><div style="display:flex;position:absolute"><img src="/a.png"><img src="http://a.com/b.png" alt="b"><img src="https://a.com/c.png" alt=""></div><script>x</script><link rel="stylesheet" href="https://x.com/f.css"></body></html>' );
+$codes = array_column( $w, 'code' );
+check( 'imagen relativa, http, sin alt', in_array( 'img_relative', $codes, true ) && in_array( 'img_http', $codes, true ) && in_array( 'img_alt', $codes, true ) );
+check( 'flex y position', in_array( 'css', $codes, true ) && array_values( array_filter( $w, function ( $x ) { return $x['code'] === 'css'; } ) )[0]['items'] === [ 'flex / grid', 'position' ] );
+check( 'fuente externa', in_array( 'fonts', $codes, true ) );
+check( 'lo quitado (script, link)', in_array( 'removed', $codes, true ) );
+$big = DXO_Html_Email::warnings( '<html><body>' . str_repeat( '<p>relleno relleno relleno relleno</p>', 4000 ) . '</body></html>' );
+check( 'tamaño de más de 102 KB', in_array( 'size', array_column( $big, 'code' ), true ) );
+check( 'un correo limpio no avisa de nada', DXO_Html_Email::warnings( '<html><body><table><tr><td><img src="https://a.com/a.png" alt="a" width="10"></td></tr></table></body></html>' ) === [] );
+
+
+// ═══ Revisión 0.5.0: seguridad, rendimiento y robustez ═════════════════════
+
+echo "Escondite de {campos} (nadie puede forzar una restauración)\n";
+$evil = '<img src=x onerror=alert(1)>';
+$payload = '<p>Hola dxotag' . bin2hex( $evil ) . 'x dxo0123456789abcdefn0z</p><a href="dxotag' . bin2hex( 'javascript:alert(1)' ) . 'x">c</a><div style="dxotag' . bin2hex( '"><script>alert(2)</script>' ) . 'x">z</div>';
+$outs = [ DXO_Sanitizer::fragment( $payload ), DXO_Sanitizer::document( '<html><body>' . $payload . '</body></html>' ), DXO_Html_Email::prepare( $payload ), $mk( $payload )['html'] ];
+$ok = true;
+foreach ( $outs as $o ) { if ( stripos( $o, '<img src=x' ) !== false || stripos( $o, '<script' ) !== false || strpos( $o, 'javascript:' ) !== false || stripos( $o, 'onerror=' ) !== false ) $ok = false; }
+check( 'un "dxotag<hex>x" escrito a mano sale como texto, no como HTML', $ok );
+$tok = DXO_Sanitizer::fragment( '<a href="https://a.com/?e={email}&n={first_name|amigo}">x</a><p>{last_name}</p>' );
+check( 'los {campos} de verdad siguen sobreviviendo', strpos( $tok, 'e={email}&amp;n={first_name|amigo}' ) !== false && strpos( $tok, '<p>{last_name}</p>' ) !== false );
+check( 'un respaldo con comillas o < no se esconde: no puede colar etiquetas por el escondite', strpos( DXO_Sanitizer::fragment( '<a title="{first_name|a&quot;><b>}">x</a>' ), '<b>' ) === false );
+
+echo "meta http-equiv\n";
+foreach ( [
+	'<meta charset="utf-8" http-equiv="refresh" content="0;url=https://evil.test">',
+	'<meta name="viewport" http-equiv="refresh" content="0;url=https://evil.test">',
+	'<meta name="description" http-equiv="set-cookie" content="a=b">',
+	'<meta HTTP-EQUIV="Refresh" content="0;url=https://evil.test">',
+] as $m ) {
+	$o = DXO_Sanitizer::document( '<html><head>' . $m . '</head><body><p>x</p></body></html>' );
+	check( 'sin refresh/set-cookie: ' . substr( $m, 0, 50 ), stripos( $o, 'refresh' ) === false && stripos( $o, 'set-cookie' ) === false );
+}
+check( 'x-ua-compatible sí se queda', strpos( DXO_Sanitizer::document( '<html><head><meta http-equiv="X-UA-Compatible" content="IE=edge"></head><body></body></html>' ), 'http-equiv="X-UA-Compatible"' ) !== false );
+
+echo "CSS: comentarios y mXSS\n";
+foreach ( [ '</sty/**/le>', '</sty/**//**/le>', '<</**/!--/**/style>', '</style >', "</sty\0le>" ] as $v ) {
+	$css = DXO_Sanitizer::clean_css( 'p{color:red}' . $v . '<img src=x onerror=alert(1)>' );
+	check( 'clean_css no deja "<": ' . json_encode( $v ), strpos( $css, '<' ) === false );
+}
+$o = DXO_Sanitizer::document( '<html><head><style>p{color:red}</sty/**/le><img src=x onerror=alert(1)></style></head><body><p style="color:red</sty/**/le>">x</p></body></html>' );
+check( 'en el documento no sale ninguna etiqueta nueva del CSS', ! preg_match( '/<img[^>]*onerror/i', $o ) );
+check( 'el ">" de un selector hijo en <style> sigue funcionando', strpos( DXO_Sanitizer::clean_css( 'div > p{color:red}' ), 'div > p' ) !== false );
+$cc = DXO_Sanitizer::clean_css( 'a{width:expression(1)}b{behavior:url(x.htc)}c{-moz-binding:url(x)}d{background:url(javascript:x)}e{color:red}' );
+check( 'expression, behavior, -moz-binding, javascript: fuera', ! preg_match( '/expression|behavior|binding|javascript/i', $cc ) && strpos( $cc, 'e{color:red}' ) !== false );
+
+echo "@import y link solo de Google Fonts\n";
+check( '@import de Google Fonts se queda', strpos( DXO_Sanitizer::clean_css( '@import url("https://fonts.googleapis.com/css2?family=Inter");' ), 'fonts.googleapis.com' ) !== false );
+check( '@import ajeno, con dominio parecido o con basura detrás, fuera', DXO_Sanitizer::clean_css( '@import url(https://evil.test/x.css);@import url(https://fonts.googleapis.com.evil.test/x);@import url(https://fonts.googleapis.com/a) ; url(https://evil.test);p{color:red}' ) === 'p{color:red}' || strpos( DXO_Sanitizer::clean_css( '@import url(https://evil.test/x.css);@import url(https://fonts.googleapis.com.evil.test/x);' ), 'evil' ) === false );
+check( '<link> solo de fonts.googleapis.com', strpos( DXO_Sanitizer::document( '<html><head><link rel="stylesheet" href="https://fonts.googleapis.com.evil.test/x"></head><body></body></html>' ), 'evil' ) === false );
+
+echo "Comentarios condicionales\n";
+$o = DXO_Sanitizer::document( '<html><body><p>x</p><!--[if mso]> --!> <img src=x onerror=alert(1) <![endif]--></body></html>' );
+check( 'un "--!>" dentro de un condicional no deja pasar nada vivo', stripos( $o, 'onerror' ) === false );
+foreach ( [
+	'<!--[if mso]><script>alert(1)</script><![endif]-->',
+	'<!--[if mso]><p onclick="x()">a</p><![endif]-->',
+	'<!--[if mso]><a href="javascript:alert(1)">a</a><![endif]-->',
+	'<!--[if mso]><img src="data:text/html;base64,AA"><![endif]-->',
+	'<!--[if mso]>&#60;script&#62;<![endif]-->',
+] as $c ) {
+	$o = DXO_Sanitizer::document( '<html><body><p>x</p>' . $c . '</body></html>' );
+	check( 'se quita: ' . substr( $c, 0, 48 ), strpos( $o, '[if mso]' ) === false && strpos( $o, '<p>x</p>' ) !== false );
+}
+$vml = '<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="https://a.com" style="height:40px;width:200px" arcsize="10%" fillcolor="#000000" stroke="f"><w:anchorlock/><center style="color:#fff">Ir&nbsp;ya</center></v:roundrect><![endif]-->';
+check( 'el botón VML de Outlook se queda tal cual', strpos( DXO_Sanitizer::document( '<html><body>' . $vml . '</body></html>' ), $vml ) !== false );
+$mso_style = '<!--[if mso]><style>td{font-family:Arial,sans-serif}</style><table role="presentation"><tr><td width="600"><![endif]-->';
+check( 'estilos y tablas dentro de un condicional se quedan', strpos( DXO_Sanitizer::document( '<html><body>' . $mso_style . '<p>x</p></body></html>' ), $mso_style ) !== false );
+
+echo "Rendimiento y límites\n";
+$css = ''; $rows = '';
+for ( $i = 0; $i < 400; $i++ ) { $css .= ".c$i td p span.x$i{color:#abc;margin:0 auto}\n.r$i{padding:4px}\n"; }
+for ( $i = 0; $i < 1000; $i++ ) { $rows .= '<tr class="r' . ( $i % 400 ) . '"><td><p class="c' . ( $i % 400 ) . '">Hola <span class="x' . ( $i % 400 ) . '">texto ' . $i . '</span> <a href="https://x.test/p/' . $i . '">link</a></p></td></tr>'; }
+$t0 = microtime( true );
+$big = DXO_Html_Email::prepare( '<!doctype html><html><head><style>' . $css . '</style></head><body><table>' . $rows . '</table></body></html>' );
+check( '800 reglas y 1000 filas se preparan en menos de 2 s', microtime( true ) - $t0 < 2 && strpos( $big, 'padding:4px' ) !== false );
+$t0 = microtime( true ); DXO_Html_Email::prepare( '<!doctype html><html><head><style>' . $css . '</style></head><body><table>' . $rows . '</table></body></html>' );
+check( 'la segunda vez sale de la memoria', microtime( true ) - $t0 < 0.1 );
+$many = ''; for ( $i = 0; $i < 2100; $i++ ) $many .= ".m$i{color:red}";
+$w = DXO_Html_Email::warnings( '<html><head><style>' . $many . '</style></head><body><p class="m1">x</p></body></html>' );
+check( 'más de 2000 reglas: se avisa y las que sobran se quedan en el <style>', in_array( 'rules', array_column( $w, 'code' ), true ) );
+// El transient guarda lo preparado (con WordPress): se simula.
+$GLOBALS['fake_t'] = [];
+function get_transient( $k ) { return $GLOBALS['fake_t'][ $k ] ?? false; }
+function set_transient( $k, $v, $e = 0 ) { $GLOBALS['fake_t'][ $k ] = $v; return true; }
+function delete_transient( $k ) { unset( $GLOBALS['fake_t'][ $k ] ); return true; }
+$uniq = '<p>transient ' . uniqid() . '</p>';
+DXO_Html_Email::prepare( $uniq );
+check( 'lo preparado se guarda en un transient', count( $GLOBALS['fake_t'] ) === 1 );
+DXO_Html_Email::forget( $uniq );
+check( 'forget() lo borra', count( $GLOBALS['fake_t'] ) === 0 );
+
+echo "Baja propia de verdad\n";
+$own_of = function ( $h ) { return DXO_Html_Email::own_unsubscribe( $h ); };
+check( 'enlace normal con texto', $own_of( '<p><a href="{unsubscribe_url}">Baja</a></p>' ) === true );
+check( 'dentro de un div display:none no cuenta', $own_of( '<div style="display:none"><a href="{unsubscribe_url}">u</a></div>' ) === false );
+check( 'escondido con una clase (CSS en línea) no cuenta', $own_of( '<style>.h{display:none}</style><div class="h"><a href="{unsubscribe_url}">u</a></div>' ) === false );
+foreach ( [ 'visibility:hidden', 'font-size:0', 'opacity:0', 'max-height:0', 'mso-hide:all' ] as $hid ) {
+	check( "oculto con $hid no cuenta", $own_of( '<span style="' . $hid . '"><a href="{unsubscribe_url}">u</a></span>' ) === false );
+}
+check( 'como parámetro de otra URL no cuenta', $own_of( '<a href="https://evil.test/?r={unsubscribe_url}">fwd</a>' ) === false );
+check( 'en un mailto no cuenta', $own_of( '<a href="mailto:a@b.c?body={unsubscribe_url}">fwd</a>' ) === false );
+check( 'enlace vacío no cuenta', $own_of( '<a href="{unsubscribe_url}"></a>' ) === false );
+check( 'una imagen de 1x1 no cuenta', $own_of( '<a href="{unsubscribe_url}"><img src="https://x/a.png" width="1" height="1" alt=""></a>' ) === false );
+check( 'una imagen normal sí', $own_of( '<a href="{unsubscribe_url}"><img src="https://x/a.png" width="120" height="30" alt="baja"></a>' ) === true );
+check( 'sin baja propia el pie se añade', strpos( $mk( '<div style="display:none"><a href="{unsubscribe_url}">u</a></div>' )['html'], 'Riviera Beach' ) !== false );
+
+
+echo "Baja: forma exacta, ocultos y persistencia\n";
+$r = $mk( '<p><a href="{unsubscribe_url|https://evil.test}">Baja</a></p>' );
+check( 'M1: {unsubscribe_url|respaldo} no cuenta como baja propia: se añade el pie y no queda un enlace muerto', $own_of( '<a href="{unsubscribe_url|https://evil.test}">Baja</a>' ) === false && strpos( $r['html'], 'Riviera Beach' ) !== false && strpos( $r['html'], 'evil.test' ) === false );
+check( 'M1: el href exacto (con espacios alrededor) sí', $own_of( '<a href=" {unsubscribe_url} ">Baja</a>' ) === true );
+check( 'M1: {unsubscribe_url}/algo tampoco', $own_of( '<a href="{unsubscribe_url}/x">Baja</a>' ) === false );
+check( 'M1: ningún href con respaldo sobrevive en el limpiador', strpos( DXO_Sanitizer::fragment( '<a href="{view_in_browser_url|https://evil.test}">v</a>' ), 'href' ) === false );
+foreach ( [
+	'line-height:0', 'height:0;overflow:hidden', 'text-indent:-9999px', 'font-size:2px', 'font-size:5px',
+	'color:#ffffff;background:#fff', 'color:#FFF;background-color:#ffffff',
+] as $hid ) {
+	check( "B1: oculto con $hid", $own_of( '<div style="' . $hid . '"><a href="{unsubscribe_url}">u</a></div>' ) === false );
+}
+check( 'B1: color igual al fondo del ancestro (bgcolor)', $own_of( '<table><tr><td bgcolor="#112233"><a href="{unsubscribe_url}" style="color:#124"><font>u</font></a></td></tr></table>' ) === true && $own_of( '<table><tr><td bgcolor="#112233"><a href="{unsubscribe_url}" style="color:#112233">u</a></td></tr></table>' ) === false );
+check( 'B1: un enlace normal (14px, colores distintos) sí cuenta', $own_of( '<div style="font-size:14px;line-height:20px;color:#333;background:#fff"><a href="{unsubscribe_url}" style="color:#888">u</a></div>' ) === true );
+check( 'B1: height:0 sin overflow:hidden no esconde', $own_of( '<div style="height:0"><a href="{unsubscribe_url}">u</a></div>' ) === true );
+
+$GLOBALS['fake_t'] = [];
+$pv = '<p>vista previa ' . uniqid() . '</p>';
+$mk( $pv, [ 'preview' => true ] );
+DXO_Html_Email::own_unsubscribe( $pv );
+DXO_Html_Email::warnings( $pv );
+check( 'M2: la vista previa (render preview, avisos, comprobación de baja) no guarda nada en la base', count( $GLOBALS['fake_t'] ) === 0 );
+$mk( $pv );
+check( 'M2: el envío, la prueba y "ver en el navegador" (render normal) sí lo guardan, aunque la vista previa ya lo tuviera en memoria', count( $GLOBALS['fake_t'] ) === 1 );
+
+echo "Huecos de preheader, pie y píxel\n";
+$tricky = '<html><body><p>x</p><!--[if mso]></td></tr></table><![endif]--><p>fin</p><!--[if mso]></td></tr></table><![endif]--></body></html>';
+$r = $mk( $tricky );
+$cpos = strrpos( $r['html'], '<![endif]-->' );
+check( 'el pie y el píxel no caen dentro de un comentario', $cpos !== false && strpos( $r['html'], 'Riviera Beach' ) > $cpos && strpos( $r['html'], 'dxo=open' ) > $cpos );
+check( 'el preheader es lo primero del body', preg_match( '#<body[^>]*><div style="display:none#', $r['html'] ) === 1 );
+check( 'los huecos no quedan en el correo', strpos( $r['html'], 'dxo-start' ) === false && strpos( $r['html'], 'dxo-end' ) === false );
+$r = $mk( '<html><body><p>x</p></body></html>', [ 'preheader' => '', 'pixel_url' => null ] );
+check( 'sin preheader ni píxel tampoco', strpos( $r['html'], 'dxo-' ) === false || strpos( $r['html'], 'dxo-start' ) === false );
+
+echo "<style media>\n";
+$h = DXO_Inliner::inline( '<html><head><style media="print">p{color:red}</style><style media="(max-width:600px)">p{margin:9px}</style><style>p{font-size:11px}</style></head><body><p>x</p></body></html>' );
+check( 'las hojas de print o de otro medio no se pasan a línea', strpos( $h, 'color:red' ) !== false && strpos( $h, '<p style="font-size:11px">' ) !== false && strpos( $h, 'margin:9px' ) !== false && strpos( $h, '<p style="margin' ) === false );
+
+echo "Acentos y charset\n";
+foreach ( [
+	'<html><head><meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"></head><body><p>Año ñandú é</p></body></html>',
+	'<html><head><meta charset="windows-1252"></head><body><p>Año ñandú é</p></body></html>',
+	"\xEF\xBB\xBF<!DOCTYPE html><html><head><title>t</title></head><body><p>Año ñandú é</p></body></html>",
+] as $h ) {
+	$o = DXO_Html_Email::prepare( $h );
+	check( 'acentos intactos y un solo meta charset utf-8', strpos( $o, 'Año ñandú é' ) !== false && substr_count( strtolower( $o ), 'charset' ) === 1 && strpos( $o, '<meta charset="utf-8">' ) !== false );
+}
+
+echo "Bloque HTML: trozos con cierres sueltos\n";
+check( 'un </div> suelto no corta lo que sigue', DXO_Sanitizer::fragment( '<p>a</p></div><p>b</p><div>c' ) === '<p>a</p><p>b</p><div>c</div>' );
+check( 'tras un </div> suelto lo peligroso sigue limpio', strpos( DXO_Sanitizer::fragment( '<p>a</p></div><img src=x onerror=alert(1)><p>b</p>' ), 'onerror' ) === false );
+$b64 = DXO_Renderer::normalize_blocks( [ [ 'type' => 'html', 'html_b64' => base64_encode( '<p onclick="x()">Año</p><script>1</script>' ) ] ] );
+check( 'html_b64 se decodifica y se limpia', $b64[0]['html'] === '<p>Año</p>' );
+check( 'html_b64 roto da un bloque vacío', DXO_Renderer::normalize_blocks( [ [ 'type' => 'html', 'html_b64' => '%%%' ] ] )[0]['html'] === '' );
+
+echo "Campos en CSS, asunto y texto\n";
+$r = $mk( '<style>p{font-family:{first_name};background:url({email})}</style><p style="color:{first_name};margin:0">x {first_name}</p>', [ 'fields' => [ 'first_name' => 'x;}</style><script>alert(1)</script>', 'email' => 'a@b.c' ] ] );
+check( 'el nombre de una persona no abre un <script>', stripos( $r['html'], '<script' ) === false );
+check( '...ni en <style> ni en style=""', strpos( $r['html'], 'font-family:x' ) === false && strpos( $r['html'], 'color:x' ) === false && strpos( $r['html'], 'a@b.c' ) === false && strpos( $r['html'], 'margin:0' ) !== false );
+check( '{unsubscribe_url} en asunto o preheader se avisa', DXO_Renderer::link_tags_in( 'Hola {unsubscribe_url}', 'x {view_in_browser_url|y}' ) === [ '{unsubscribe_url}', '{view_in_browser_url}' ] );
+$r = $mk( '<html><body><p>Hola</p><center>despedida sin salto</center></body></html>' );
+check( 'texto plano: el pie empieza en su línea', preg_match( "/despedida sin salto\n+Te suscribiste/", $r['text'] ) === 1 );
+check( 'sin DOM no hay fatal (available() existe y es true aquí)', DXO_Sanitizer::available() === true );
+
+
+echo "WebP / AVIF\n";
+$w = DXO_Html_Email::warnings( '<html><body><img src="https://a.com/a.webp?v=2" alt="a"><img src="https://a.com/b.AVIF" alt="b"><img src="https://a.com/c.png" alt="c"></body></html>' );
+$wp = array_values( array_filter( $w, function ( $x ) { return $x['code'] === 'img_webp'; } ) );
+check( 'código HTML: avisa de .webp y .avif (2) y no de .png', count( $wp ) === 1 && $wp[0]['n'] === 2 );
+check( 'bloques: imagen, entrada del blog y <img> de un bloque HTML', DXO_Html_Email::modern_images_in_blocks( [
+	[ 'type' => 'image', 'url' => 'https://a.com/a.webp' ], [ 'type' => 'image', 'url' => 'https://a.com/b.jpg' ],
+	[ 'type' => 'post', 'image' => 'https://a.com/p.avif?x=1' ], [ 'type' => 'html', 'html' => '<p><img src="https://a.com/h.webp" alt=""></p>' ],
+] ) === 3 );
+
+echo "Idioma de los textos fijos\n";
+require_once __DIR__ . '/../includes/class-dxo-campaigns.php';
+function pll_languages_list( $a = [] ) { $f = $a['fields'] ?? 'slug'; return [ 'slug' => [ 'es', 'en' ], 'name' => [ 'Español', 'English' ], 'locale' => [ 'es_CO', 'en_US' ] ][ $f ]; }
+function pll_default_language() { return 'es'; }
+function get_option( $k, $d = false ) { return $GLOBALS['fake_opt'][ $k ] ?? $d; }
+function update_option( $k, $v, $a = null ) { $GLOBALS['fake_opt'][ $k ] = $v; return true; }
+check( 'sin idioma y con Polylang: el idioma por defecto del sitio público', DXO_Campaigns::render_lang( [ 'audience' => [ 'lists' => [] ] ] ) === 'es' );
+check( 'con idioma propio: ese', DXO_Campaigns::render_lang( [ 'audience' => [ 'lang' => 'en' ] ] ) === 'en' );
+check( 'y su locale sale de la lista de Polylang', DXO_Campaigns::languages()['es']['locale'] === 'es_CO' );
+
 echo "\n";
 echo $fails ? "\n$fails fallos\n" : "\nTodo bien\n";
 exit( $fails ? 1 : 0 );

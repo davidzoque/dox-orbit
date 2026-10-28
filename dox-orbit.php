@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       Dox Orbit
  * Plugin URI:        https://doxstudio.com
- * Description:       Email marketing for WordPress and WooCommerce, from your own site: subscription forms with double opt-in, a block editor, sending in batches through the site's email, and opens, clicks and unsubscribes in every report.
- * Version:           0.4.0
+ * Description:       Email marketing for WordPress and WooCommerce, from your own site: subscription forms with double opt-in, a block editor or your own HTML code, sending in batches through the site's email, and opens, clicks and unsubscribes in every report.
+ * Version:           0.5.0
  * Author:            Dox Studio
  * Author URI:        https://doxstudio.com
  * License:           GPL v2 or later
@@ -18,7 +18,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'DXO_VERSION', '0.4.0' );
+define( 'DXO_VERSION', '0.5.0' );
 define( 'DXO_FILE', __FILE__ );
 define( 'DXO_PATH', plugin_dir_path( __FILE__ ) );
 define( 'DXO_URL', plugin_dir_url( __FILE__ ) );
@@ -68,6 +68,9 @@ if ( file_exists( DXO_PATH . 'dox-core/loader.php' ) && file_exists( DXO_PATH . 
 require_once DXO_PATH . 'includes/class-dxo-install.php';
 require_once DXO_PATH . 'includes/class-dxo-settings.php';
 require_once DXO_PATH . 'includes/class-dxo-renderer.php';
+require_once DXO_PATH . 'includes/class-dxo-sanitizer.php';
+require_once DXO_PATH . 'includes/class-dxo-inliner.php';
+require_once DXO_PATH . 'includes/class-dxo-html-email.php';
 require_once DXO_PATH . 'includes/class-dxo-subscribers.php';
 require_once DXO_PATH . 'includes/class-dxo-campaigns.php';
 require_once DXO_PATH . 'includes/class-dxo-mailer.php';

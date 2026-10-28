@@ -23,6 +23,8 @@ endif;
 
 $s        = DXO_Settings::all();
 $welcome  = $c['type'] === 'welcome';
+$is_html  = $c['format'] === 'html';
+$dom_ok   = DXO_Sanitizer::available(); // sin DOM no se puede limpiar HTML: solo bloques
 $lists    = DXO_Lists::all();
 $resend   = ! empty( $c['audience']['resend'] );
 $test_to  = get_user_meta( get_current_user_id(), 'dxo_test_to', true ) ?: wp_get_current_user()->user_email;
@@ -36,6 +38,7 @@ $data = [
 	'status'    => $c['status'],
 	'subject'   => $c['subject'],
 	'preheader' => $c['preheader'],
+	'format'    => $c['format'],
 	'blocks'    => $c['blocks'],
 	'lists'     => array_map( 'intval', $c['audience']['lists'] ?? [] ),
 	'resend'    => $resend,
@@ -76,6 +79,19 @@ $data = [
 		],
 		'hasAddress'  => $s['address'] !== '',
 		'merge_help'  => __( 'Fields: {first_name}, {last_name}, {email}. With a fallback: {first_name|friend}.', 'dox-orbit' ),
+		'html'        => [
+			'own_unsub'   => __( '<b>Your own unsubscribe link</b> ({unsubscribe_url}) is in the code, plus the one-click unsubscribe header that Gmail and Yahoo require', 'dox-orbit' ),
+			'footer'      => __( '<b>Footer added by Orbit.</b> Your code has no link with {unsubscribe_url}, so the unsubscribe link and your address go at the end. The one-click header is sent too.', 'dox-orbit' ),
+			'import_ask'  => __( 'The code in the editor will be replaced by the file. Continue?', 'dox-orbit' ),
+			'import_btn'  => __( 'Replace', 'dox-orbit' ),
+			'import_big'  => __( 'That file is too large. Over 1 MB cannot be a good email.', 'dox-orbit' ),
+			'imported'    => __( 'File imported', 'dox-orbit' ),
+			'to_html_t'   => __( 'Switch to HTML code?', 'dox-orbit' ),
+			'to_html'     => __( 'The email will be sent from the HTML code. Your blocks are kept, and you can go back to them at any time.', 'dox-orbit' ),
+			'to_blocks_t' => __( 'Switch to blocks?', 'dox-orbit' ),
+			'to_blocks'   => __( 'The email will be sent from the blocks. Your HTML code is kept, and you can go back to it at any time.', 'dox-orbit' ),
+			'switch'      => __( 'Switch', 'dox-orbit' ),
+		],
 		'labels'      => [
 			'text'     => __( 'Text', 'dox-orbit' ),
 			'size'     => __( 'Size', 'dox-orbit' ),
@@ -108,6 +124,9 @@ $data = [
 			'add_link' => __( 'Link', 'dox-orbit' ),
 			'link_prompt' => __( 'Link address (https://…)', 'dox-orbit' ),
 			'apply'    => __( 'Apply', 'dox-orbit' ),
+			'html_code' => __( 'HTML code', 'dox-orbit' ),
+			'html_ph'  => '<table>…</table>',
+			'html_hint' => __( 'The HTML of the block. Tables and inline styles work in every email app.', 'dox-orbit' ),
 		],
 	],
 ];
@@ -175,18 +194,35 @@ $data = [
 				</div>
 			<?php endif; ?>
 
-			<div class="dxo-card" data-anim>
-				<div class="dxo-card-h"><h3><?php esc_html_e( 'Blocks', 'dox-orbit' ); ?></h3><div class="sp"></div><span class="small muted"><?php esc_html_e( 'Drag to reorder', 'dox-orbit' ); ?></span></div>
-				<div class="dxo-card-b">
-					<div class="dxo-blocks" id="dxo-blocks"></div>
-					<div class="dxo-add" id="dxo-add">
-						<?php foreach ( [ 'heading', 'text', 'image', 'button', 'post', 'divider', 'spacer' ] as $t ) : ?>
-							<button type="button" data-add="<?php echo esc_attr( $t ); ?>">+ <span data-label="<?php echo esc_attr( $t ); ?>"></span></button>
-						<?php endforeach; ?>
+			<?php if ( $is_html ) : ?>
+				<div class="dxo-card" data-anim>
+					<div class="dxo-card-h">
+						<h3><?php esc_html_e( 'HTML code', 'dox-orbit' ); ?></h3><div class="sp"></div>
+						<button type="button" class="dxo-btn dxo-btn-gray dxo-btn-sm" data-ed="import"><?php esc_html_e( 'Import .html file', 'dox-orbit' ); ?></button>
+						<button type="button" class="dxo-btn dxo-btn-gray dxo-btn-sm" data-ed="format" data-to="blocks"><?php esc_html_e( 'Use blocks instead', 'dox-orbit' ); ?></button>
+						<input type="file" id="dxo-import-file" accept=".html,.htm,text/html" hidden>
 					</div>
-					<p class="dxo-note"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php echo esc_html( $data['strings']['merge_help'] ); ?></span></p>
+					<div class="dxo-card-b">
+						<div class="dxo-code-wrap"><textarea id="dxo-html" class="dxo-code" spellcheck="false" autocomplete="off" aria-label="<?php esc_attr_e( 'HTML code', 'dox-orbit' ); ?>" placeholder="<?php esc_attr_e( 'Paste the full HTML of your email here', 'dox-orbit' ); ?>"><?php echo esc_textarea( $c['html'] ); ?></textarea></div>
+						<p class="dxo-note"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php esc_html_e( 'Fields: {first_name}, {last_name}, {email}. With a fallback: {first_name|friend}. Also {unsubscribe_url} and {view_in_browser_url} for links. If your code has no {unsubscribe_url}, Orbit adds its footer with the unsubscribe link at the end.', 'dox-orbit' ); ?></span></p>
+						<p class="dxo-note"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php esc_html_e( 'When it goes out, Orbit removes scripts, forms and anything an email app does not allow, moves the CSS of the <style> tags into each element (Gmail and Outlook need it there) and tracks the clicks. The preview on the right is exactly that.', 'dox-orbit' ); ?></span></p>
+					</div>
 				</div>
-			</div>
+			<?php else : ?>
+				<div class="dxo-card" data-anim>
+					<div class="dxo-card-h"><h3><?php esc_html_e( 'Blocks', 'dox-orbit' ); ?></h3><div class="sp"></div><span class="small muted dxo-hide-sm"><?php esc_html_e( 'Drag to reorder', 'dox-orbit' ); ?></span>
+						<?php if ( $dom_ok ) : ?><button type="button" class="dxo-btn dxo-btn-gray dxo-btn-sm" data-ed="format" data-to="html"><?php esc_html_e( 'Use HTML code instead', 'dox-orbit' ); ?></button><?php endif; ?></div>
+					<div class="dxo-card-b">
+						<div class="dxo-blocks" id="dxo-blocks"></div>
+						<div class="dxo-add" id="dxo-add">
+							<?php foreach ( array_diff( [ 'heading', 'text', 'image', 'button', 'post', 'html', 'divider', 'spacer' ], $dom_ok ? [] : [ 'html' ] ) as $t ) : ?>
+								<button type="button" data-add="<?php echo esc_attr( $t ); ?>">+ <span data-label="<?php echo esc_attr( $t ); ?>"></span></button>
+							<?php endforeach; ?>
+						</div>
+						<p class="dxo-note"><?php echo DXO_Admin::icon( 'info' ); // phpcs:ignore ?><span><?php echo esc_html( $data['strings']['merge_help'] ); ?></span></p>
+					</div>
+				</div>
+			<?php endif; ?>
 
 			<div class="dxo-card" data-anim>
 				<div class="dxo-card-h"><h3><?php esc_html_e( 'Before sending', 'dox-orbit' ); ?></h3></div>
@@ -211,4 +247,4 @@ $data = [
 		</div>
 	</div>
 </div>
-<script type="application/json" id="dxo-data"><?php echo wp_json_encode( $data ); ?></script>
+<script type="application/json" id="dxo-data"><?php echo wp_json_encode( $data, JSON_HEX_TAG | JSON_HEX_AMP ); // phpcs:ignore -- JSON con < y & escapados: un "</script>" en un bloque no puede cerrar la etiqueta. ?></script>

@@ -4,7 +4,7 @@ Tags: email marketing, newsletter, woocommerce, subscribe form, double opt-in
 Requires at least: 6.5
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 0.4.0
+Stable tag: 0.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -16,7 +16,7 @@ Dox Orbit keeps your list inside your WordPress:
 
 * Subscription forms in a page (shortcode or Elementor widget), as a pop-up or as a bottom bar.
 * Double opt-in with a confirmation email you can edit.
-* A block editor with a live preview of the exact email that goes out.
+* A block editor with a live preview of the exact email that goes out, or paste your own HTML code (a full email, or an HTML block among the others).
 * Sending in batches through the WordPress email (the same one WooCommerce uses), with an hourly cap so the website emails always have room. Amazon SES optional.
 * One-click unsubscribe (RFC 8058) in every email.
 * Reports: opens, clicks, first 24 hours, links, email providers, and resend to who did not open.
@@ -24,6 +24,17 @@ Dox Orbit keeps your list inside your WordPress:
 * Bounce handling: reads a dedicated mailbox by IMAP every hour and marks addresses that do not exist as Bounced, so Orbit stops writing to them.
 
 == Changelog ==
+
+= 0.5.0 =
+* New HTML block: add your own HTML among the other blocks. It is cleaned for email when saved and when sent, shown in a code editor with a live preview, and its links are tracked like any other.
+* New campaigns made from pasted HTML code (also for the welcome email): choose «Paste HTML code» when you create a campaign, or switch an existing one. Your blocks are kept when you switch, so you can go back.
+* For pasted code, Orbit removes what email apps do not allow (scripts, forms, iframes, event handlers, javascript: links), moves the CSS of the style tags into each element, fills the fields, adds the hidden preview text, tracks the clicks, adds the open-tracking pixel and builds the plain-text version.
+* Never without an unsubscribe link: if your code has none (a link with {unsubscribe_url}), Orbit adds its standard footer at the end. {view_in_browser_url} is available too.
+* Import an .html file into the editor. Warnings that do not block anything: over 102 KB (Gmail clips it), images with relative or http:// addresses or without alt text, CSS that email apps ignore, external fonts.
+* WebP and AVIF images are flagged: Outlook for Windows does not show them.
+* Campaigns without a language use the default language of the public site (Polylang) for the footer and unsubscribe texts.
+* The "view in browser" page is served with a strict Content-Security-Policy.
+* Database: two new columns in the campaigns table (format and html).
 
 = 0.4.0 =
 * Automatic bounce handling: Orbit sends with a dedicated mailbox as the return address, reads it by IMAP every hour (no PHP imap extension needed, encrypted connection with a verified certificate) and marks addresses that do not exist as Bounced. Mailbox full and similar temporary problems only warn: after 3 without a click in between, the address is marked as Bounced. Auto-replies and delay notices are ignored.

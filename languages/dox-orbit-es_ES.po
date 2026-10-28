@@ -92,6 +92,9 @@ msgstr "30 días"
 msgid "<b>All images</b> have alternative text"
 msgstr "<b>Todas las imágenes</b> tienen texto alternativo"
 
+msgid "<b>Footer added by Orbit.</b> Your code has no link with {unsubscribe_url}, so the unsubscribe link and your address go at the end. The one-click header is sent too."
+msgstr "<b>Pie añadido por Orbit.</b> Tu código no tiene ningún enlace con {unsubscribe_url}, así que el enlace de baja y tu dirección van al final. La cabecera de baja con un clic también se envía."
+
 msgid "<b>No postal address.</b> Add it in Settings: CAN-SPAM requires it."
 msgstr "<b>Falta la dirección postal.</b> Ponla en Ajustes: la ley CAN-SPAM la exige."
 
@@ -109,6 +112,9 @@ msgstr "<b>Prueba enviada.</b> Mírala también en el móvil."
 
 msgid "<b>Unsubscribe link</b> and the one-click unsubscribe header that Gmail and Yahoo require"
 msgstr "<b>Enlace de baja</b> y la cabecera de baja con un clic que piden Gmail y Yahoo"
+
+msgid "<b>Your own unsubscribe link</b> ({unsubscribe_url}) is in the code, plus the one-click unsubscribe header that Gmail and Yahoo require"
+msgstr "<b>Tu propio enlace de baja</b> ({unsubscribe_url}) está en el código, más la cabecera de baja con un clic que piden Gmail y Yahoo"
 
 msgid "A CSV from Mailchimp, Excel or wherever you have it."
 msgstr "Un CSV de Mailchimp, de Excel o de donde la tengas."
@@ -145,6 +151,9 @@ msgstr "Añadir"
 
 msgid "Add subscriber"
 msgstr "Añadir suscriptor"
+
+msgid "Add titles, text, images and buttons and see the email as you go. The easy way."
+msgstr "Añade títulos, textos, imágenes y botones y ve el correo según lo armas. La forma fácil."
 
 msgid "Added by hand"
 msgstr "Añadidos a mano"
@@ -244,6 +253,9 @@ msgstr "Color de marca"
 
 msgid "Brand in the email"
 msgstr "La marca en el correo"
+
+msgid "Bring an email you already have (from a designer, an HTML template or another tool) and send it as it is."
+msgstr "Trae un correo que ya tengas (de un diseñador, de una plantilla HTML o de otra herramienta) y envíalo tal cual."
 
 msgid "Bring your list"
 msgstr "Trae tu lista"
@@ -368,6 +380,9 @@ msgstr "Se vuelve a contar al enviarla: quien abra la original mientras tanto ya
 msgid "Create a mailbox only for this (in cPanel: Email Accounts), for example bounces@yourdomain.com, and put its address and password here. Orbit checks it every hour, marks the addresses that do not exist as Bounced so it stops writing to them, and tidies the mailbox."
 msgstr "Crea un buzón solo para esto (en cPanel: Cuentas de correo), por ejemplo rebotes@tudominio.com, y pon aquí su dirección y su contraseña. Orbit lo revisa cada hora, marca como Rebotados los correos que no existen para dejar de escribirles, y ordena el buzón."
 
+msgid "Custom fonts only load in some email apps (Apple Mail, iPhone). Anywhere else the fallback font is used, so always add one."
+msgstr "Las fuentes propias solo cargan en algunas apps de correo (Apple Mail, iPhone). En el resto se usa la fuente de respaldo, así que pon siempre una."
+
 msgid "Dark"
 msgstr "Oscuro"
 
@@ -388,6 +403,9 @@ msgstr "¿Borrar del todo a este suscriptor? Sus envíos se quedan en los inform
 
 msgid "Deleting a list does not delete the people: they stay in the other lists."
 msgstr "Borrar una lista no borra a la gente: siguen en las demás listas."
+
+msgid "Design with blocks"
+msgstr "Diseñar con bloques"
 
 msgid "Desktop"
 msgstr "Ordenador"
@@ -467,8 +485,14 @@ msgstr "Envíos fallidos"
 msgid "Fields: {first_name}, {last_name}, {email}. With a fallback: {first_name|friend}."
 msgstr "Campos: {first_name}, {last_name}, {email}. Con respaldo: {first_name|amigo}."
 
+msgid "Fields: {first_name}, {last_name}, {email}. With a fallback: {first_name|friend}. Also {unsubscribe_url} and {view_in_browser_url} for links. If your code has no {unsubscribe_url}, Orbit adds its footer with the unsubscribe link at the end."
+msgstr "Campos: {first_name}, {last_name}, {email}. Con respaldo: {first_name|amigo}. Para enlaces, también {unsubscribe_url} y {view_in_browser_url}. Si tu código no trae {unsubscribe_url}, Orbit añade al final su pie con el enlace de baja."
+
 msgid "File"
 msgstr "Archivo"
+
+msgid "File imported"
+msgstr "Archivo importado"
 
 msgid "First 24 hours"
 msgstr "Primeras 24 horas"
@@ -536,6 +560,12 @@ msgstr "Sale a %s por hora para dejar sitio a los correos de la web"
 msgid "Good"
 msgstr "Buena"
 
+msgid "HTML"
+msgstr "HTML"
+
+msgid "HTML code"
+msgstr "Código HTML"
+
 msgid "Handle bounces automatically"
 msgstr "Gestionar los rebotes automáticamente"
 
@@ -556,6 +586,9 @@ msgstr "Imagen"
 
 msgid "Import"
 msgstr "Importar"
+
+msgid "Import .html file"
+msgstr "Importar archivo .html"
 
 msgid "Import CSV"
 msgstr "Importar CSV"
@@ -676,6 +709,9 @@ msgstr "Aspecto y comportamiento"
 
 msgid "Main form"
 msgstr "Formulario principal"
+
+msgid "Many email apps ignore or break this CSS: %s. Tables work everywhere."
+msgstr "Muchas apps de correo ignoran o rompen este CSS: %s. Las tablas funcionan en todas."
 
 msgid "Mark as active"
 msgstr "Marcar como activo"
@@ -860,8 +896,14 @@ msgstr "Páginas"
 msgid "Password"
 msgstr "Contraseña"
 
+msgid "Paste HTML code"
+msgstr "Pegar código HTML"
+
 msgid "Paste it in any page or post. In Elementor, look for the «Dox Orbit» widget."
 msgstr "Pégalo en cualquier página o entrada. En Elementor, busca el widget «Dox Orbit»."
+
+msgid "Paste the full HTML of your email here"
+msgstr "Pega aquí el HTML completo de tu correo"
 
 msgid "Pause"
 msgstr "Pausar"
@@ -923,8 +965,14 @@ msgstr "Rechazado"
 msgid "Remove"
 msgstr "Quitar"
 
+msgid "Removed from the email because email apps do not allow it: %s."
+msgstr "Quitado del correo porque las apps de correo no lo permiten: %s."
+
 msgid "Removed from the list"
 msgstr "Fuera de la lista"
+
+msgid "Replace"
+msgstr "Reemplazar"
 
 msgid "Reply to"
 msgstr "Responder a"
@@ -1112,6 +1160,15 @@ msgstr "Suscriptor"
 msgid "Subscribers"
 msgstr "Suscriptores"
 
+msgid "Switch"
+msgstr "Cambiar"
+
+msgid "Switch to HTML code?"
+msgstr "¿Cambiar al código HTML?"
+
+msgid "Switch to blocks?"
+msgstr "¿Cambiar a bloques?"
+
 msgid "Temporary"
 msgstr "Pasajero"
 
@@ -1157,6 +1214,9 @@ msgstr "Ese correo no parece correcto."
 msgid "That email does not look right. Check it and try again."
 msgstr "Ese correo no parece correcto. Revísalo e inténtalo otra vez."
 
+msgid "That file is too large. Over 1 MB cannot be a good email."
+msgstr "Ese archivo es demasiado grande. Un correo de más de 1 MB no puede ser bueno."
+
 msgid "That subscriber no longer exists."
 msgstr "Ese suscriptor ya no existe."
 
@@ -1169,6 +1229,12 @@ msgstr "Ese correo de bienvenida ya no existe."
 msgid "The CAN-SPAM law in the US requires a real postal address in every marketing email: a street address, a PO box or a private mailbox."
 msgstr "La ley CAN-SPAM de EE. UU. exige una dirección postal real en cada correo de marketing: calle, apartado de correos o buzón privado."
 
+msgid "The HTML code is too large. Over 1 MB cannot be a good email."
+msgstr "El código HTML es demasiado grande. Un correo de más de 1 MB no puede ser bueno."
+
+msgid "The HTML of the block. Tables and inline styles work in every email app."
+msgstr "El HTML del bloque. Las tablas y los estilos en línea funcionan en todas las apps de correo."
+
 msgid "The WordPress email"
 msgstr "El correo de WordPress"
 
@@ -1177,6 +1243,12 @@ msgstr "El correo del buzón de rebotes no es válido."
 
 msgid "The campaign and its report will be deleted. This cannot be undone."
 msgstr "Se borrarán la campaña y su informe. No se puede deshacer."
+
+msgid "The code has too many CSS rules: %s were left out of the inlining and stay in the style tag."
+msgstr "El código tiene demasiadas reglas CSS: %s no se pasaron a línea y se quedan en la etiqueta style."
+
+msgid "The code in the editor will be replaced by the file. Continue?"
+msgstr "El código del editor se reemplazará por el del archivo. ¿Continuar?"
 
 msgid "The confirmation email"
 msgstr "El correo de confirmación"
@@ -1192,6 +1264,18 @@ msgstr "No se pudo enviar el correo. Revisa los ajustes de envío."
 
 msgid "The email is empty: add a title, a text or an image."
 msgstr "El correo está vacío: añade un título, un texto o una imagen."
+
+msgid "The email is empty: paste the HTML code."
+msgstr "El correo está vacío: pega el código HTML."
+
+msgid "The email weighs about %s KB. Gmail cuts off emails over 102 KB and hides the rest behind «View entire message»."
+msgstr "El correo pesa unos %s KB. Gmail corta los correos de más de 102 KB y esconde el resto tras «Ver mensaje completo»."
+
+msgid "The email will be sent from the HTML code. Your blocks are kept, and you can go back to them at any time."
+msgstr "El correo saldrá del código HTML. Tus bloques se conservan y puedes volver a ellos cuando quieras."
+
+msgid "The email will be sent from the blocks. Your HTML code is kept, and you can go back to it at any time."
+msgstr "El correo saldrá de los bloques. Tu código HTML se conserva y puedes volver a él cuando quieras."
 
 msgid "The links go through your website for an instant before reaching their destination."
 msgstr "Los enlaces pasan un instante por tu web antes de llegar a su destino."
@@ -1286,6 +1370,12 @@ msgstr "Esta persona no está pendiente de confirmar."
 msgid "This person unsubscribed. Only they can subscribe again, from a form."
 msgstr "Esta persona se dio de baja. Solo ella puede volver a suscribirse, desde un formulario."
 
+msgid "This server cannot clean HTML code (the PHP DOM extension is missing), so HTML campaigns are turned off."
+msgstr "Este servidor no puede limpiar código HTML (falta la extensión DOM de PHP), así que las campañas HTML están desactivadas."
+
+msgid "This server has no PHP DOM extension, so Orbit cannot clean HTML code safely. The HTML block and HTML campaigns are turned off; blocks work as always. Ask your host to enable the DOM (php-xml) extension."
+msgstr "Este servidor no tiene la extensión DOM de PHP, así que Orbit no puede limpiar código HTML con seguridad. El bloque HTML y las campañas HTML están desactivados; los bloques funcionan como siempre. Pídele a tu hosting que active la extensión DOM (php-xml)."
+
 msgid "Three steps and you can send your first newsletter. Everything stays in your WordPress."
 msgstr "Tres pasos y puedes enviar tu primer boletín. Todo se queda en tu WordPress."
 
@@ -1324,6 +1414,12 @@ msgstr "Bajas"
 
 msgid "Unsubscribes per send"
 msgstr "Bajas por envío"
+
+msgid "Use HTML code instead"
+msgstr "Usar código HTML"
+
+msgid "Use blocks instead"
+msgstr "Usar bloques"
 
 msgid "Use plus addressing (VERP)"
 msgstr "Usar direcciones con más (VERP)"
@@ -1381,6 +1477,9 @@ msgstr "Cuando salga una campaña, aquí aparecerán sus aperturas, clics y baja
 
 msgid "When an address does not exist or the mailbox is full, the other server sends the email back. Without this, those returns get lost and Orbit keeps writing to dead addresses, which hurts your reputation with Gmail and Outlook."
 msgstr "Cuando una dirección no existe o su buzón está lleno, el otro servidor devuelve el correo. Sin esto, esas devoluciones se pierden y Orbit sigue escribiendo a direcciones muertas, lo que daña tu reputación ante Gmail y Outlook."
+
+msgid "When it goes out, Orbit removes scripts, forms and anything an email app does not allow, moves the CSS of the <style> tags into each element (Gmail and Outlook need it there) and tracks the clicks. The preview on the right is exactly that."
+msgstr "Al salir, Orbit quita los scripts, los formularios y todo lo que una app de correo no permite, pasa el CSS de las etiquetas <style> a cada elemento (Gmail y Outlook lo necesitan ahí) y sigue los clics. La vista previa de la derecha es exactamente eso."
 
 msgid "When scrolling down"
 msgstr "Al bajar por la página"
@@ -1584,6 +1683,26 @@ msgid "%s failed"
 msgid_plural "%s failed"
 msgstr[0] "%s falló"
 msgstr[1] "%s fallaron"
+
+msgid "%s image has a relative address (like /images/logo.png). In an email it needs the full address, starting with https://."
+msgid_plural "%s images have a relative address (like /images/logo.png). In an email they need the full address, starting with https://."
+msgstr[0] "%s imagen tiene una dirección relativa (como /images/logo.png). En un correo necesita la dirección completa, que empiece por https://."
+msgstr[1] "%s imágenes tienen una dirección relativa (como /images/logo.png). En un correo necesitan la dirección completa, que empiece por https://."
+
+msgid "%s image has no alt attribute. It is what is read when images are blocked."
+msgid_plural "%s images have no alt attribute. It is what is read when images are blocked."
+msgstr[0] "%s imagen no tiene atributo alt. Es lo que se lee cuando las imágenes están bloqueadas."
+msgstr[1] "%s imágenes no tienen atributo alt. Es lo que se lee cuando las imágenes están bloqueadas."
+
+msgid "%s image is WebP or AVIF. Outlook for Windows does not show it; use JPG or PNG."
+msgid_plural "%s images are WebP or AVIF. Outlook for Windows does not show them; use JPG or PNG."
+msgstr[0] "%s imagen es WebP o AVIF. Outlook para Windows no la muestra; usa JPG o PNG."
+msgstr[1] "%s imágenes son WebP o AVIF. Outlook para Windows no las muestra; usa JPG o PNG."
+
+msgid "%s image uses http:// and some email apps block it. Use https://."
+msgid_plural "%s images use http:// and some email apps block them. Use https://."
+msgstr[0] "%s imagen usa http:// y algunas apps de correo la bloquean. Usa https://."
+msgstr[1] "%s imágenes usan http:// y algunas apps de correo las bloquean. Usa https://."
 
 msgid "%s person"
 msgid_plural "%s people"
